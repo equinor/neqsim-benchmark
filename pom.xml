@@ -198,13 +198,12 @@ THE POSSIBILITY OF SUCH DAMAGE.
 					<artifactId>maven-install-plugin</artifactId>
 					<version>2.5.1</version>
 					<configuration>
-						<groupId>com.equinor</groupId>
+                        <groupId>com.equinor.neqsim</groupId>
 						<artifactId>neqsim</artifactId>
-						<version>2.5.0</version>
+                        <version>2.5.1</version>
 						<packaging>jar</packaging>
-						<file>${basedir}/resources/neqsim-2.5.0.jar</file>
-						<generatePom>true</generatePom>
-						<!--<pomFile>${basedir}/resources/neqsim-2.5.0.xml</pomFile>-->
+                        <file>${basedir}/resources/neqsim-2.5.1.jar</file>
+                        <generatePom>true</generatePom>
 					</configuration>
 					<executions>
 						<execution>
