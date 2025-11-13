@@ -1,25 +1,27 @@
 package com.equinor.neqsim.benchmark.process;
 
-import org.openjdk.jmh.annotations.*;
-import neqsim.processSimulation.measurementDevice.HydrateEquilibriumTemperatureAnalyser;
-import neqsim.processSimulation.measurementDevice.WaterDewPointAnalyser;
-import neqsim.processSimulation.processEquipment.ProcessEquipmentInterface;
-import neqsim.processSimulation.processEquipment.absorber.SimpleTEGAbsorber;
-import neqsim.processSimulation.processEquipment.absorber.WaterStripperColumn;
-import neqsim.processSimulation.processEquipment.distillation.DistillationColumn;
-import neqsim.processSimulation.processEquipment.filter.Filter;
-import neqsim.processSimulation.processEquipment.heatExchanger.HeatExchanger;
-import neqsim.processSimulation.processEquipment.heatExchanger.Heater;
-import neqsim.processSimulation.processEquipment.mixer.StaticMixer;
-import neqsim.processSimulation.processEquipment.pump.Pump;
-import neqsim.processSimulation.processEquipment.separator.Separator;
-import neqsim.processSimulation.processEquipment.splitter.Splitter;
-import neqsim.processSimulation.processEquipment.stream.Stream;
-import neqsim.processSimulation.processEquipment.util.Calculator;
-import neqsim.processSimulation.processEquipment.util.Recycle;
-import neqsim.processSimulation.processEquipment.util.SetPoint;
-import neqsim.processSimulation.processEquipment.util.StreamSaturatorUtil;
-import neqsim.processSimulation.processEquipment.valve.ThrottlingValve;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Warmup;
+import neqsim.process.equipment.absorber.SimpleTEGAbsorber;
+import neqsim.process.equipment.absorber.WaterStripperColumn;
+import neqsim.process.equipment.distillation.DistillationColumn;
+import neqsim.process.equipment.filter.Filter;
+import neqsim.process.equipment.heatexchanger.HeatExchanger;
+import neqsim.process.equipment.heatexchanger.Heater;
+import neqsim.process.equipment.mixer.StaticMixer;
+import neqsim.process.equipment.pump.Pump;
+import neqsim.process.equipment.separator.Separator;
+import neqsim.process.equipment.splitter.Splitter;
+import neqsim.process.equipment.stream.Stream;
+import neqsim.process.equipment.util.Calculator;
+import neqsim.process.equipment.util.Recycle;
+import neqsim.process.equipment.util.StreamSaturatorUtil;
+import neqsim.process.equipment.valve.ThrottlingValve;
+import neqsim.process.measurementdevice.HydrateEquilibriumTemperatureAnalyser;
+import neqsim.process.measurementdevice.WaterDewPointAnalyser;
+import neqsim.process.processmodel.ProcessSystem;
 /**
  * <p>
  * TEGprocess_benchmark class.
@@ -65,8 +67,8 @@ public class TEGprocess {
         new Stream("water saturated feed gas Smorbukk", saturatedFeedGasSmorbukk.getOutletStream());
 
     HydrateEquilibriumTemperatureAnalyser hydrateTAnalyserSmorbukk =
-        new HydrateEquilibriumTemperatureAnalyser(waterSaturatedFeedGasSmorbukk);
-    hydrateTAnalyserSmorbukk.setName("hydrate temperature analyser Smorbukk");
+            new HydrateEquilibriumTemperatureAnalyser("hydrate temperature analyser Smorbukk",
+                    waterSaturatedFeedGasSmorbukk);
 
     Splitter SmorbukkSplit = new Splitter("Smorbukk Splitter", waterSaturatedFeedGasSmorbukk);
     double[] splitSmorbukk = {1.0 - 1e-10, 1e-10};
@@ -84,9 +86,8 @@ public class TEGprocess {
         new Stream("water saturated feed gas Midgard", saturatedFeedGasMidgard.getOutletStream());
 
     HydrateEquilibriumTemperatureAnalyser hydrateTAnalyserMidgard =
-        new HydrateEquilibriumTemperatureAnalyser(
-            waterSaturatedFeedGasMidgard);
-    hydrateTAnalyserMidgard.setName("hydrate temperature analyser Midgard");
+            new HydrateEquilibriumTemperatureAnalyser("hydrate temperature analyser Midgard",
+                    waterSaturatedFeedGasMidgard);
 
     Splitter MidgardSplit = new Splitter("Midgard Splitter", waterSaturatedFeedGasMidgard);
     double[] splitMidgard = {1e-10, 1 - 1e-10};
@@ -104,8 +105,8 @@ public class TEGprocess {
         new Stream("feed to TEG absorber", feedTPsetterToAbsorber.getOutletStream());
 
     HydrateEquilibriumTemperatureAnalyser hydrateTAnalyser2 =
-        new HydrateEquilibriumTemperatureAnalyser(feedToAbsorber);
-    hydrateTAnalyser2.setName("hydrate temperature gas to absorber");
+            new HydrateEquilibriumTemperatureAnalyser("hydrate temperature gas to absorber",
+                    feedToAbsorber);
 
     WaterDewPointAnalyser waterDewPointAnalyserToAbsorber =
         new WaterDewPointAnalyser(feedToAbsorber);
@@ -135,9 +136,8 @@ public class TEGprocess {
     Stream richTEG = new Stream("rich TEG from absorber", absorber.getLiquidOutStream());
 
     HydrateEquilibriumTemperatureAnalyser waterDewPointAnalyser =
-        new HydrateEquilibriumTemperatureAnalyser(dehydratedGas);
+            new HydrateEquilibriumTemperatureAnalyser("hydrate dew point analyser", dehydratedGas);
     waterDewPointAnalyser.setReferencePressure(70.0);
-    waterDewPointAnalyser.setName("hydrate dew point analyser");
 
     WaterDewPointAnalyser waterDewPointAnalyser2 = new WaterDewPointAnalyser(dehydratedGas);
     waterDewPointAnalyser2.setReferencePressure(70.0);
@@ -209,8 +209,7 @@ public class TEGprocess {
     Stream gasToReboiler = (Stream) strippingGas.clone();
     gasToReboiler.setName("gas to reboiler");
 
-    DistillationColumn column = new DistillationColumn(1, true, true);
-    column.setName("TEG regeneration column");
+    DistillationColumn column = new DistillationColumn("TEG regeneration column", 1, true, true);
     column.addFeedStream(glycol_flash_valve2.getOutletStream(), 1);
     column.getReboiler().setOutTemperature(273.15 + 202.0);
     column.getCondenser().setOutTemperature(273.15 + 89.0);
@@ -280,8 +279,7 @@ public class TEGprocess {
     resycleLeanTEG.setPriority(200);
     resycleLeanTEG.setDownstreamProperty("flow rate");
 
-    neqsim.processSimulation.processSystem.ProcessSystem operations =
-        new neqsim.processSimulation.processSystem.ProcessSystem();
+    ProcessSystem operations = new ProcessSystem();
     operations.add(dryFeedGasSmorbukk);
     operations.add(saturatedFeedGasSmorbukk);
     operations.add(waterSaturatedFeedGasSmorbukk);
