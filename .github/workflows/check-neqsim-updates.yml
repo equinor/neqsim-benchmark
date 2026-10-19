@@ -3,6 +3,11 @@ name: Check NeqSim Updates
 on:
   schedule:
     - cron: "23 6 * * 1"
+  push:
+    branches: [main]
+    paths: [pom.xml]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -20,6 +25,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -28,12 +35,52 @@ jobs:
           java-version: "21"
           cache: maven
 
-      - name: Check Maven Central for a newer stable NeqSim release
+      - name: Find the next stable NeqSim release on Maven Central
+        id: next
+        shell: python
+        run: |
+          import os
+          import re
+          import urllib.request
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+          pom = ET.fromstring(Path("pom.xml").read_bytes())
+          current = pom.findtext("m:properties/m:neqsim.version", namespaces=namespace)
+          if current is None or not re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", current.strip()):
+              raise ValueError("neqsim.version must contain a stable numeric release")
+          current = current.strip()
+          url = "https://repo.maven.apache.org/maven2/com/equinor/neqsim/neqsim/maven-metadata.xml"
+          with urllib.request.urlopen(url, timeout=30) as response:
+              metadata = ET.fromstring(response.read())
+          versions = [element.text.strip() for element in metadata.findall("versioning/versions/version")
+                      if element.text and re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", element.text.strip())]
+          if not versions:
+              raise ValueError("Maven Central returned no stable NeqSim releases")
+          width = max(len(version.split(".")) for version in versions + [current])
+
+          def version_key(version):
+              parts = tuple(int(part) for part in version.split("."))
+              return parts + (0,) * (width - len(parts))
+
+          newer = sorted({version for version in versions if version_key(version) > version_key(current)},
+                         key=version_key)
+          next_version = newer[0] if newer else ""
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"version={next_version}\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(f"Current NeqSim: {current}. Next release: {next_version or 'none'}.\n")
+
+      - name: Update to the next stable NeqSim release
+        if: steps.next.outputs.version != ''
+        env:
+          NEXT_VERSION: ${{ steps.next.outputs.version }}
         run: >-
-          mvn --batch-mode --no-transfer-progress --update-snapshots
-          org.codehaus.mojo:versions-maven-plugin:2.18.0:use-latest-releases
-          -Dincludes=com.equinor.neqsim:neqsim
-          -Dmaven.version.ignore='.*[-+a-zA-Z].*'
+          mvn --batch-mode --no-transfer-progress
+          org.codehaus.mojo:versions-maven-plugin:2.18.0:set-property
+          -Dproperty=neqsim.version
+          -DnewVersion="$NEXT_VERSION"
           -DgenerateBackupPoms=false
 
       - name: Detect dependency update
@@ -44,7 +91,7 @@ jobs:
             echo "NeqSim is already up to date." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "A newer NeqSim release is available; verifying the build." >> "$GITHUB_STEP_SUMMARY"
+            echo "The next NeqSim release is available; verifying the build." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Verify updated dependency
@@ -59,12 +106,14 @@ jobs:
           branch: automation/neqsim-update
           delete-branch: true
           add-paths: pom.xml
-          commit-message: "build: update NeqSim to the latest stable release"
-          title: "build: update NeqSim to the latest stable release"
+          commit-message: "build: update NeqSim to ${{ steps.next.outputs.version }}"
+          title: "build: update NeqSim to ${{ steps.next.outputs.version }}"
           body: |
-            A newer stable release of `com.equinor.neqsim:neqsim` was found on Maven Central.
+            Update `com.equinor.neqsim:neqsim` to the next stable release, ${{ steps.next.outputs.version }}.
 
-            Only the NeqSim dependency is updated. Prereleases are excluded.
+            Only the NeqSim version property is updated. Prereleases are excluded.
+            Intermediate stable releases are not skipped. After this PR is merged,
+            the workflow checks for the next version and opens a separate PR if needed.
             The updated project passed `mvn clean verify` with Java 21.
 
             Review compatibility and benchmark results before merging.
