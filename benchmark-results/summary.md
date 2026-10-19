@@ -10,3 +10,4 @@ Versions come from embedded dependency JAR metadata when available; (requested) 
 | --- | --- | --- | ---: | ---: | ---: | --- | --- |
 | 3.1.2 | 3.1.0 | baseline: failed (exit 1); current: failed (exit 1) | 0 | 0 / 0 | n/a | incomplete | [View results](releases/neqsim-3.1.2/from-3.1.0/run-39328461789-1/comparison.md) |
 | 3.1.2 | 3.1.0 | baseline: failed (exit 1); current: failed (exit 1) | 0 | 0 / 0 | n/a | incomplete | [View results](releases/neqsim-3.1.2/from-3.1.0/run-39328951319-1/comparison.md) |
+| 3.1.2 | 3.1.0 | baseline: failed (exit 1); current: failed (exit 1) | 0 | 0 / 0 | n/a | incomplete | [View results](releases/neqsim-3.1.2/from-3.1.0/run-39329215156-1/comparison.md) |
