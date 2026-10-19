@@ -1,0 +1,70 @@
+name: Check NeqSim Updates
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: check-neqsim-updates
+  cancel-in-progress: false
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Check Maven Central for a newer stable NeqSim release
+        run: >-
+          mvn --batch-mode --no-transfer-progress --update-snapshots
+          org.codehaus.mojo:versions-maven-plugin:2.18.0:use-latest-releases
+          -Dincludes=com.equinor.neqsim:neqsim
+          -Dmaven.version.ignore='.*[-+a-zA-Z].*'
+          -DgenerateBackupPoms=false
+
+      - name: Detect dependency update
+        id: update
+        run: |
+          if git diff --quiet -- pom.xml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "NeqSim is already up to date." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "A newer NeqSim release is available; verifying the build." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Verify updated dependency
+        if: steps.update.outputs.changed == 'true'
+        run: mvn --batch-mode --no-transfer-progress clean verify
+
+      - name: Open or update dependency pull request
+        if: steps.update.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: automation/neqsim-update
+          delete-branch: true
+          add-paths: pom.xml
+          commit-message: "build: update NeqSim to the latest stable release"
+          title: "build: update NeqSim to the latest stable release"
+          body: |
+            A newer stable release of `com.equinor.neqsim:neqsim` was found on Maven Central.
+
+            Only the NeqSim dependency is updated. Prereleases are excluded.
+            The updated project passed `mvn clean verify` with Java 21.
+
+            Review compatibility and benchmark results before merging.
