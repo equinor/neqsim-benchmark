@@ -27,7 +27,8 @@ build_failures=0
 
 for variant in baseline current; do
   rm -f "$RUNNER_TEMP/$variant-benchmarks.json" "$RUNNER_TEMP/$variant-benchmarks.txt" \
-    "$RUNNER_TEMP/$variant-benchmarks.log"
+    "$RUNNER_TEMP/$variant-benchmarks.log" "$RUNNER_TEMP/$variant-artifact.json" \
+    "$RUNNER_TEMP/$variant-classpath.txt"
   if [[ "$variant" == baseline ]]; then
     version="$baseline_version"
   else
@@ -40,6 +41,14 @@ for variant in baseline current; do
         -Dincludes=com.equinor.neqsim:neqsim -DdepVersion="$version" \
         -DforceVersion=true -DgenerateBackupPoms=false || exit "$?"
     fi
+    mvn --batch-mode --no-transfer-progress -f "$project_dir/pom.xml" \
+      org.apache.maven.plugins:maven-dependency-plugin:3.8.1:build-classpath \
+      "-D${version_property:-neqsim.version}=$version" \
+      -DincludeGroupIds=com.equinor.neqsim -DincludeArtifactIds=neqsim \
+      -DincludeTypes=jar -DexcludeTransitive=true \
+      -Dmdep.outputFile="$RUNNER_TEMP/$variant-classpath.txt" || exit "$?"
+    python3 "$script_dir/neqsim-jar-version.py" "$RUNNER_TEMP/$variant-classpath.txt" \
+      "$version" "$RUNNER_TEMP/$variant-artifact.json" || exit "$?"
     printf '$ mvn clean verify -D%s=%s\n' "${version_property:-neqsim.version}" "$version"
     mvn --batch-mode --no-transfer-progress -f "$project_dir/pom.xml" clean verify \
       "-D${version_property:-neqsim.version}=$version"

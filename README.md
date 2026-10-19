@@ -80,6 +80,10 @@ Maven build failures are fail-tolerant: both versions are attempted, each failed
 variant skips JMH, and the failure is saved in the per-release results and the
 cumulative summary's **Maven Builds** column. This does not relax the release
 requirement for a complete verified comparison.
+The reported NeqSim version comes from the resolved dependency JAR's embedded
+Maven metadata, captured before compilation. Failed builds therefore retain
+their JAR version. If a JAR cannot be resolved, its requested version is labelled
+as such instead of being reported as verified.
 
 ## Benchmarks
 The benchmarks are based on the `@Tag("benchmark")` tests and the slow process tests in

@@ -134,7 +134,8 @@ jobs:
               raise ValueError("The results commit contains a different NeqSim version; rerun benchmarks")
           subprocess.run(["git", "diff", "--exit-code", source_commit, target, "--",
                           "src", ".github/scripts/benchmark-timings.py",
-                          ".github/scripts/run-benchmark-timings.sh"], check=True)
+                          ".github/scripts/run-benchmark-timings.sh",
+                          ".github/scripts/neqsim-jar-version.py"], check=True)
           tag = f"neqsim-{version}"
           subprocess.run(["git", "check-ref-format", f"refs/tags/{tag}"], check=True)
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:

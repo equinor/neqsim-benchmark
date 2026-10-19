@@ -5,6 +5,14 @@ Positive overall gain means a reduction in average time per operation, computed
 as the geometric mean of the current/baseline timing ratios. Compare runs with
 the same benchmark cases; incomplete runs have no reported overall gain.
 
+Versions are read from the resolved NeqSim dependency JAR's embedded Maven
+`pom.properties` before compilation. This identity survives a failed build and
+is retained in `baseline-artifact.json` and `current-artifact.json`. Reports
+show requested and actual JAR versions separately. If dependency resolution
+fails, the known requested version is labelled `(requested)` in the history;
+it is not presented as a verified JAR version. Version-selection failures that
+occur before any build do not create `unknown` benchmark records.
+
 The dependency updater includes the result directory and updated POM in the same
 PR, so they are merged together. Maven failures do not block the PR: each build's
 status and exit code are included in comparison tables, JSON, and the cumulative
@@ -23,6 +31,8 @@ releases/neqsim-<release>/from-<baseline>/run-<id>-<attempt>/
   transcript.md
   baseline-benchmarks.json
   current-benchmarks.json
+  baseline-artifact.json
+  current-artifact.json
 ```
 
 `comparison.md` contains a table of every matched benchmark/parameter case,
