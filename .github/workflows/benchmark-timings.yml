@@ -158,7 +158,7 @@ jobs:
               --current-version "$CURRENT_VERSION" \
               --baseline-list "$RUNNER_TEMP/baseline-benchmarks.txt" \
               --current-list "$RUNNER_TEMP/current-benchmarks.txt" \
-              --archive-dir benchmark-results \
+              --archive-dir benchmark-results --no-history \
               --pom-file "$GITHUB_WORKSPACE/pom.xml" \
               --run-url "$RUN_URL" --status "$BENCHMARK_STATUS"
             git add -- benchmark-results

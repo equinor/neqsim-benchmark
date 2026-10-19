@@ -5,6 +5,12 @@ Positive overall gain means a reduction in average time per operation, computed
 as the geometric mean of the current/baseline timing ratios. Compare runs with
 the same benchmark cases; incomplete runs have no reported overall gain.
 
+Release history is updated only by the dependency updater when NeqSim changes,
+with one row for the first report of each baseline-to-release transition.
+Standalone benchmark runs save their reports without changing `summary.md`.
+Their `comparison.json` sets `include_in_history` to `false`, so later history
+rebuilds also exclude them. Deduplicating history does not delete per-run reports.
+
 Versions are read from the resolved NeqSim dependency JAR's embedded Maven
 `pom.properties` before compilation. This identity survives a failed build and
 is retained in `baseline-artifact.json` and `current-artifact.json`. Reports

@@ -62,6 +62,10 @@ The Actions run summary lists the ten largest timing changes in milliseconds
 per operation and percent, with confidence-interval overlap noted.
 [benchmark-results/summary.md](benchmark-results/summary.md) keeps a cumulative Markdown
 table of releases, baselines, case counts, timing gains, and completeness status.
+Only the dependency updater changes this history, when it updates NeqSim.
+The table keeps the first report for each baseline-to-release transition.
+Standalone benchmark runs retain their per-run reports and Actions summaries,
+but do not update release history or enter it during later rebuilds.
 Each release comparison also keeps a full build/JMH transcript, raw JMH JSON,
 and a table of every matched benchmark case, including parameters and confidence
 intervals. See [benchmark-results/README.md](benchmark-results/README.md) for the
@@ -77,8 +81,8 @@ their full comparison runs inside the updater before the PR is opened.
 JMH continues after individual benchmark failures. Missing results are called
 out in the summary and mark the comparison as incomplete rather than passing.
 Maven build failures are fail-tolerant: both versions are attempted, each failed
-variant skips JMH, and the failure is saved in the per-release results and the
-cumulative summary's **Maven Builds** column. This does not relax the release
+variant skips JMH, and the failure is saved in the per-run results. Dependency
+update failures also appear in the release history's **Maven Builds** column. This does not relax the release
 requirement for a complete verified comparison.
 The reported NeqSim version comes from the resolved dependency JAR's embedded
 Maven metadata, captured before compilation. Failed builds therefore retain
