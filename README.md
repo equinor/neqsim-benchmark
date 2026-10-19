@@ -111,21 +111,20 @@ systems or uses dense/sparse matrices, so they can be used to compare linear alg
 
 | Benchmark class | What it measures | Matrix-dependent code |
 | --- | --- | --- |
-| [FlashBenchmark](src/main/java/com/equinor/neqsim/benchmark/flash/FlashBenchmark.java) | TP flashes (SRK, PR, CPA, multiphase, reactive electrolyte), near-critical TP flash grid, PH/PS flashes | Stability analysis, second-order Newton TP flash, chemical equilibrium |
-| [PhaseEnvelopeBenchmark](src/main/java/com/equinor/neqsim/benchmark/thermo/PhaseEnvelopeBenchmark.java) | PT phase envelopes, critical point flash, saturation points, CPA hydrate temperature | Newton steps in envelope tracing and critical point solver |
-| [InterfacialTensionBenchmark](src/main/java/com/equinor/neqsim/benchmark/thermo/InterfacialTensionBenchmark.java) | Gas/oil interfacial tension, `@Param` model: Full Gradient Theory, Simple Gradient Theory, Parachor | Full gradient theory uses LAPACK through MTJ in older NeqSim versions |
-| [LinearAlgebraKernelBenchmark](src/main/java/com/equinor/neqsim/benchmark/numerics/LinearAlgebraKernelBenchmark.java) | Levenberg-Marquardt parameter fitting, data reconciliation with 20 or 100 nodes | Jacobian/normal equation solves, weighted least squares |
+| [FlashBenchmark](src/main/java/com/equinor/neqsim/benchmark/flash/FlashBenchmark.java) | TP flashes (SRK, PR, CPA, multiphase, reactive electrolyte), standard PH/PS flashes | Stability analysis and chemical equilibrium |
+| [PhaseEnvelopeBenchmark](src/main/java/com/equinor/neqsim/benchmark/thermo/PhaseEnvelopeBenchmark.java) | PT phase envelopes, saturation points, CPA hydrate temperature | Newton steps in envelope tracing |
+| [InterfacialTensionBenchmark](src/main/java/com/equinor/neqsim/benchmark/thermo/InterfacialTensionBenchmark.java) | Gas/oil surface tension with Simple Gradient Theory and Parachor | Simple gradient theory and non-matrix baseline |
+| [LinearAlgebraKernelBenchmark](src/main/java/com/equinor/neqsim/benchmark/numerics/LinearAlgebraKernelBenchmark.java) | Levenberg-Marquardt parameter fitting | Jacobian/normal equation solves |
 | [PipeFlowSolverBenchmark](src/main/java/com/equinor/neqsim/benchmark/fluidmechanics/PipeFlowSolverBenchmark.java) | Single-phase gas pipeline and two-phase non-equilibrium pipe flow | Sparse/banded staggered-grid solvers and film mass transfer models |
-| [DistillationSolverBenchmark](src/main/java/com/equinor/neqsim/benchmark/process/DistillationSolverBenchmark.java) | Deethanizer with every column solver type | Newton, Naphtali-Sandholm, matrix inside-out, MESH residual |
-| [ReactorAndNetworkBenchmark](src/main/java/com/equinor/neqsim/benchmark/process/ReactorAndNetworkBenchmark.java) | Gibbs reactor (water-gas shift), Newton-Raphson looped gas network on a 4x4 or 8x8 grid | Gibbs minimisation Newton steps, network Jacobian solves |
-| [LargeProcessModelBenchmark](src/main/java/com/equinor/neqsim/benchmark/process/LargeProcessModelBenchmark.java) | Large oil and gas platform (8 process systems, about 130 units) | Broad coverage: flashes, recycles, compressor charts, NGL column, pipeline, reporting |
+| [ReactorAndNetworkBenchmark](src/main/java/com/equinor/neqsim/benchmark/process/ReactorAndNetworkBenchmark.java) | Gibbs reactor (water-gas shift) | Gibbs minimisation Newton steps |
 
-The large platform model is in
-[OilGasPlatformModel](src/main/java/com/equinor/neqsim/benchmark/process/OilGasPlatformModel.java)
-and is ported from NeqSim `LargeCombinedModelsTest`. Converging it from scratch takes about
-40 outer iterations and one minute, so the benchmarks cap the number of outer iterations:
-`coldStartBuildRunReport` (about 20 s/op) and `rerunAfterRateChange` (about 10-20 s/op).
-The deethanizer runs about 5 s per solve.
+The suite targets NeqSim 3.1.0. Data reconciliation and looped-network cases were
+removed because their APIs are absent from that release. Fixed-temperature
+distillation and platform cases were removed because their required reboiler
+outlet-temperature specification is unavailable. Critical-point-dependent cases
+and Full Gradient Theory were removed after runtime failures on 3.1.0. The PH/PS
+case uses the standard PH solver instead of the slow legacy direct-Newton path.
+The original TP flash, compressor, and TEG process benchmarks remain available.
 
 Run a subset with a regular expression, for example:
 ```
@@ -134,8 +133,8 @@ java -jar target/benchmarks.jar LinearAlgebraKernel -f 1 -wi 1 -i 3
 java -jar target/benchmarks.jar InterfacialTension -p model=Parachor
 ```
 
-The project needs Java 17 or later. The benchmarks compile and the smoke tests pass with NeqSim
-3.15.0 and later. The `-Java8` NeqSim builds are not supported.
+The project needs Java 17 or later. The default dependency and compatibility
+baseline is NeqSim 3.1.0. The `-Java8` NeqSim builds are not supported.
 
 ## Benchmark a local NeqSim build
 The NeqSim version is the `neqsim.version` property in [pom.xml](pom.xml). To benchmark a local
@@ -149,10 +148,9 @@ java -jar target/benchmarks.jar -rf text -rff neqsim-la-snapshot.txt
 
 ## Smoke tests
 `mvn verify` runs JUnit smoke tests in [src/test](src/test/java/com/equinor/neqsim/benchmark).
-They call every benchmark method once and check that the result is finite. They also check
-that the near-critical flash grid reaches the second-order Newton solver, that the distillation
-solvers agree, and that the full platform model converges with the expected flows and pressures.
-The tests take about two to three minutes.
+They call the retained flash, phase-envelope, surface-tension, regression, pipe-flow,
+and reactor cases and check finite outputs. Surface tensions must also be positive.
+The original TP flash, compressor, and TEG classes are exercised through JMH.
 
 ## Add benchmark methods
 Add methods under folder [benchmark](src/main/java/com/equinor/neqsim/benchmark). Remember to use decorator @Benchmark.

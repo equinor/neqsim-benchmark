@@ -1,27 +1,23 @@
 package com.equinor.neqsim.benchmark.process;
 
 import java.util.concurrent.TimeUnit;
+import neqsim.process.equipment.reactor.GibbsReactor;
+import neqsim.process.equipment.stream.Stream;
+import neqsim.thermo.system.SystemInterface;
+import neqsim.thermo.system.SystemPrEos;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import neqsim.process.equipment.network.LoopedPipeNetwork;
-import neqsim.process.equipment.reactor.GibbsReactor;
-import neqsim.process.equipment.stream.Stream;
-import neqsim.thermo.system.SystemInterface;
-import neqsim.thermo.system.SystemPrEos;
-import neqsim.thermo.system.SystemSrkEos;
 
 /**
  * Process equipment whose solvers are built on matrix operations: the Gibbs energy minimization
- * reactor (Newton steps on the element-constrained KKT system) and the looped gas distribution
- * network solved with the Newton-Raphson global gradient algorithm ({@code NetworkLinearSolver}).
+ * reactor (Newton steps on the element-constrained KKT system).
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -30,13 +26,6 @@ import neqsim.thermo.system.SystemSrkEos;
 @Measurement(iterations = 5, time = 2)
 @Fork(1)
 public class ReactorAndNetworkBenchmark {
-
-  /** Network size, kept in its own state so it does not multiply the reactor runs. */
-  @State(Scope.Thread)
-  public static class NetworkSize {
-    @Param({"4", "8"})
-    public int gridSize;
-  }
 
   /** Reverse water-gas shift CO2 + H2 = CO + H2O at 1200 K. */
   public static GibbsReactor waterGasShiftReactor() {
@@ -52,52 +41,10 @@ public class ReactorAndNetworkBenchmark {
     return reactor;
   }
 
-  /**
-   * Grid-shaped looped gas distribution network with one source and {@code n*n - 1} consumers.
-   */
-  public static LoopedPipeNetwork gridNetwork(LoopedPipeNetwork.SolverType solverType, int n) {
-    SystemSrkEos gas = new SystemSrkEos(288.15, 60.0);
-    gas.addComponent("methane", 0.95);
-    gas.addComponent("ethane", 0.05);
-    gas.setMixingRule("classic");
-    LoopedPipeNetwork network = new LoopedPipeNetwork("grid network");
-    network.setFluidTemplate(gas);
-    network.setSolverType(solverType);
-    network.setTolerance(1e-5);
-    network.setMaxIterations(500);
-    double demand = 10.0;
-    network.addSourceNode("N0_0", 60.0, demand * (n * n - 1));
-    for (int i = 0; i < n; i++) {
-      for (int j = 0; j < n; j++) {
-        if (i != 0 || j != 0) {
-          network.addSinkNode("N" + i + "_" + j, demand);
-        }
-      }
-    }
-    for (int i = 0; i < n; i++) {
-      for (int j = 0; j < n; j++) {
-        if (j + 1 < n) {
-          network.addPipe("N" + i + "_" + j, "N" + i + "_" + (j + 1), "H" + i + "_" + j, 2000.0, 0.20);
-        }
-        if (i + 1 < n) {
-          network.addPipe("N" + i + "_" + j, "N" + (i + 1) + "_" + j, "V" + i + "_" + j, 2000.0, 0.20);
-        }
-      }
-    }
-    return network;
-  }
-
   @Benchmark
   public double gibbsReactorWaterGasShift() {
     GibbsReactor reactor = waterGasShiftReactor();
     reactor.run();
     return reactor.getOutletStream().getFluid().getComponent("CO").getz();
-  }
-
-  @Benchmark
-  public double loopedGasNetworkNewton(NetworkSize state) {
-    LoopedPipeNetwork network = gridNetwork(LoopedPipeNetwork.SolverType.NEWTON_RAPHSON, state.gridSize);
-    network.run();
-    return network.getPipeFlowRate("H0_0");
   }
 }
