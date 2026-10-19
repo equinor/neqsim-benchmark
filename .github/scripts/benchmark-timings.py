@@ -149,6 +149,7 @@ def archive_results(args):
         "source_commit": args.source_commit,
         "run_url": args.run_url,
         "status": "complete" if complete else "incomplete",
+        "include_in_history": not args.no_history and args.current_version != args.baseline_version,
         "build_status": build_status,
         "requested_versions": requested_versions,
         "artifact_versions": artifact_versions,
@@ -208,7 +209,8 @@ def archive_results(args):
         shutil.copyfile(path, destination / path.name)
     if args.pom_file:
         shutil.copyfile(args.pom_file, destination / "pom.xml")
-    update_history(args.archive_dir)
+    if record["include_in_history"]:
+        update_history(args.archive_dir)
     return record
 
 
@@ -217,6 +219,15 @@ def update_history(root):
                for path in root.glob("releases/*/from-*/run-*/comparison.json")]
     records.sort(key=lambda item: (len(item[1]["run_id"]), item[1]["run_id"],
                                    int(item[1]["run_attempt"])))
+    transitions = set()
+    release_records = []
+    for path, record in records:
+        transition = (record["baseline_version"], record["current_version"])
+        if (not record.get("include_in_history", True) or transition[0] == transition[1]
+                or transition in transitions):
+            continue
+        transitions.add(transition)
+        release_records.append((path, record))
     lines = [
         "# NeqSim Benchmark Timing History",
         "",
@@ -229,7 +240,7 @@ def update_history(root):
         "| Release | Baseline | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |",
         "| --- | --- | --- | ---: | ---: | ---: | --- | --- |",
     ]
-    for path, record in records:
+    for path, record in release_records:
         gain = f"{record['gain_percent']:+.2f}%" if record["gain_percent"] is not None else "n/a"
         report_path = path.with_name("comparison.md")
         if not report_path.exists():
@@ -264,6 +275,8 @@ def main():
     parser.add_argument("--archive-dir", type=Path)
     parser.add_argument("--pom-file", type=Path)
     parser.add_argument("--require-complete", action="store_true")
+    parser.add_argument("--no-history", action="store_true",
+                        help="Archive this run without changing release history or including it in future history rebuilds")
     parser.add_argument("--run-id", default=os.environ.get("GITHUB_RUN_ID"))
     parser.add_argument("--run-attempt", default=os.environ.get("GITHUB_RUN_ATTEMPT", "1"))
     parser.add_argument("--source-commit", default=os.environ.get("GITHUB_SHA", ""))
