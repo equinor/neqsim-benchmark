@@ -47,9 +47,18 @@ jobs:
 
           namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
           pom = ET.fromstring(Path("pom.xml").read_bytes())
-          current = pom.findtext("m:properties/m:neqsim.version", namespaces=namespace)
+          dependency = next((item for item in pom.findall("m:dependencies/m:dependency", namespace)
+                             if item.findtext("m:groupId", namespaces=namespace) == "com.equinor.neqsim"
+                             and item.findtext("m:artifactId", namespaces=namespace) == "neqsim"), None)
+          if dependency is None:
+              raise ValueError("com.equinor.neqsim:neqsim dependency was not found in pom.xml")
+          declared = dependency.findtext("m:version", default="", namespaces=namespace).strip()
+          property_name = declared[2:-1] if re.fullmatch(r"\$\{[^{}]+\}", declared) else ""
+          current = (pom.findtext(f"m:properties/m:{property_name}", namespaces=namespace)
+                     if property_name else declared)
           if current is None or not re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", current.strip()):
-              raise ValueError("neqsim.version must contain a stable numeric release")
+              raise ValueError(f"NeqSim dependency {declared!r} resolves to {current!r}; "
+                               "expected a stable numeric release")
           current = current.strip()
           url = "https://repo.maven.apache.org/maven2/com/equinor/neqsim/neqsim/maven-metadata.xml"
           with urllib.request.urlopen(url, timeout=30) as response:
@@ -68,20 +77,28 @@ jobs:
                          key=version_key)
           next_version = newer[0] if newer else ""
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"version={next_version}\n")
+              output.write(f"version={next_version}\nproperty={property_name}\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
               summary.write(f"Current NeqSim: {current}. Next release: {next_version or 'none'}.\n")
 
       - name: Update to the next stable NeqSim release
         if: steps.next.outputs.version != ''
+        shell: bash
         env:
           NEXT_VERSION: ${{ steps.next.outputs.version }}
-        run: >-
-          mvn --batch-mode --no-transfer-progress
-          org.codehaus.mojo:versions-maven-plugin:2.18.0:set-property
-          -Dproperty=neqsim.version
-          -DnewVersion="$NEXT_VERSION"
-          -DgenerateBackupPoms=false
+          NEQSIM_PROPERTY: ${{ steps.next.outputs.property }}
+        run: |
+          if [[ -n "$NEQSIM_PROPERTY" ]]; then
+            mvn --batch-mode --no-transfer-progress \
+              org.codehaus.mojo:versions-maven-plugin:2.18.0:set-property \
+              -Dproperty="$NEQSIM_PROPERTY" -DnewVersion="$NEXT_VERSION" \
+              -DgenerateBackupPoms=false
+          else
+            mvn --batch-mode --no-transfer-progress \
+              org.codehaus.mojo:versions-maven-plugin:2.18.0:use-dep-version \
+              -Dincludes=com.equinor.neqsim:neqsim -DdepVersion="$NEXT_VERSION" \
+              -DforceVersion=true -DgenerateBackupPoms=false
+          fi
 
       - name: Detect dependency update
         id: update
@@ -111,7 +128,7 @@ jobs:
           body: |
             Update `com.equinor.neqsim:neqsim` to the next stable release, ${{ steps.next.outputs.version }}.
 
-            Only the NeqSim version property is updated. Prereleases are excluded.
+            Only the NeqSim dependency version is updated. Prereleases are excluded.
             Intermediate stable releases are not skipped. After this PR is merged,
             the workflow checks for the next version and opens a separate PR if needed.
             The updated project passed `mvn clean verify` with Java 21.
