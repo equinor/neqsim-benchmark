@@ -1,0 +1,157 @@
+name: Compare Benchmark Timings
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - pom.xml
+      - src/**
+      - .github/workflows/benchmark-timings.yml
+      - .github/scripts/benchmark-timings.py
+      - .github/scripts/run-benchmark-timings.sh
+  pull_request:
+    paths:
+      - pom.xml
+      - src/**
+      - .github/workflows/benchmark-timings.yml
+      - .github/scripts/benchmark-timings.py
+      - .github/scripts/run-benchmark-timings.sh
+  workflow_dispatch:
+    inputs:
+      baseline_version:
+        description: "Baseline NeqSim version (empty selects the previous version)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out benchmark sources
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Select comparison versions
+        id: versions
+        shell: python
+        env:
+          BASELINE_VERSION: ${{ inputs.baseline_version }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          import os
+          import re
+          import subprocess
+          import urllib.request
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          def read_version(pom):
+              root = ET.fromstring(pom)
+              version = root.findtext("{*}properties/{*}neqsim.version")
+              if not version:
+                  raise ValueError("Missing neqsim.version property")
+              return version.strip()
+
+          current = read_version(Path("pom.xml").read_bytes())
+          baseline = os.environ.get("BASELINE_VERSION", "").strip()
+          base_sha = os.environ.get("BASE_SHA", "")
+          if not baseline and base_sha and set(base_sha) != {"0"}:
+              baseline = read_version(subprocess.check_output(["git", "show", f"{base_sha}:pom.xml"]))
+          if not baseline or baseline == current:
+              url = "https://repo.maven.apache.org/maven2/com/equinor/neqsim/neqsim/maven-metadata.xml"
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  metadata = ET.fromstring(response.read())
+              versions = [element.text.strip() for element in metadata.findall("versioning/versions/version")
+                          if element.text and re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", element.text.strip())]
+              if not re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", current):
+                  raise ValueError("Specify a baseline_version when benchmarking a snapshot")
+              width = max(len(version.split(".")) for version in versions + [current])
+
+              def version_key(version):
+                  parts = tuple(int(part) for part in version.split("."))
+                  return parts + (0,) * (width - len(parts))
+
+              previous = [version for version in versions if version_key(version) < version_key(current)]
+              if not previous:
+                  raise ValueError("No previous stable release found; specify baseline_version")
+              baseline = max(previous, key=version_key)
+          for version in (baseline, current):
+              if not re.fullmatch(r"[0-9][0-9A-Za-z.+_-]*", version):
+                  raise ValueError(f"Invalid NeqSim version: {version!r}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"baseline={baseline}\ncurrent={current}\n")
+
+      - name: Run all benchmarks for both versions
+        shell: bash
+        env:
+          BASELINE_VERSION: ${{ steps.versions.outputs.baseline }}
+          CURRENT_VERSION: ${{ steps.versions.outputs.current }}
+        run: bash .github/scripts/run-benchmark-timings.sh "$BASELINE_VERSION" "$CURRENT_VERSION"
+
+      - name: Report incomplete comparison
+        if: failure()
+        run: |
+          echo "Benchmark comparison failed or is incomplete. See the build and JMH logs for details." \
+            | tee -a "$RUNNER_TEMP/benchmark-timing-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check out report destination
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: .timing-report-repository
+          fetch-depth: 0
+
+      - name: Commit release transcripts and timing history
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+        working-directory: .timing-report-repository
+        env:
+          BASELINE_VERSION: ${{ steps.versions.outputs.baseline || 'unknown' }}
+          CURRENT_VERSION: ${{ steps.versions.outputs.current || 'unknown' }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BENCHMARK_STATUS: ${{ job.status }}
+        run: |
+          if [[ ! -f "$RUNNER_TEMP/benchmark-timing-summary.md" ]]; then
+            echo "No timing summary was generated."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin "$DEFAULT_BRANCH"
+            git checkout --detach FETCH_HEAD
+            python3 "$GITHUB_WORKSPACE/.github/scripts/benchmark-timings.py" \
+              "$RUNNER_TEMP/baseline-benchmarks.json" \
+              "$RUNNER_TEMP/current-benchmarks.json" \
+              --baseline-version "$BASELINE_VERSION" \
+              --current-version "$CURRENT_VERSION" \
+              --baseline-list "$RUNNER_TEMP/baseline-benchmarks.txt" \
+              --current-list "$RUNNER_TEMP/current-benchmarks.txt" \
+              --archive-dir benchmark-results \
+              --pom-file "$GITHUB_WORKSPACE/pom.xml" \
+              --run-url "$RUN_URL" --status "$BENCHMARK_STATUS"
+            git add -- benchmark-results
+            if git diff --cached --quiet; then
+              exit 0
+            fi
+            git commit -m "docs: record NeqSim benchmark timings for run $GITHUB_RUN_ID"
+            if git push origin "HEAD:$DEFAULT_BRANCH"; then
+              exit 0
+            fi
+          done
+          exit 1
