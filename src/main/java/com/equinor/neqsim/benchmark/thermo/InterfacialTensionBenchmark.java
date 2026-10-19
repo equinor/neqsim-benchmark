@@ -1,6 +1,9 @@
 package com.equinor.neqsim.benchmark.thermo;
 
+import com.equinor.neqsim.benchmark.util.BenchmarkFluids;
 import java.util.concurrent.TimeUnit;
+import neqsim.thermo.system.SystemInterface;
+import neqsim.thermodynamicoperations.ThermodynamicOperations;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -13,14 +16,10 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import com.equinor.neqsim.benchmark.util.BenchmarkFluids;
-import neqsim.thermo.system.SystemInterface;
-import neqsim.thermodynamicoperations.ThermodynamicOperations;
 
 /**
- * Interfacial tension by gradient theory. The full gradient theory solves a boundary value problem
- * with matrix operations ({@code GTSurfaceTensionODE}), the simple variant uses
- * {@code GTSurfaceTensionSimple}; parachor is included as a non-matrix baseline.
+ * Interfacial tension by simple gradient theory. The gradient theory model uses {@code
+ * GTSurfaceTensionSimple}; parachor is included as a non-matrix baseline.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -30,7 +29,7 @@ import neqsim.thermodynamicoperations.ThermodynamicOperations;
 @Fork(1)
 public class InterfacialTensionBenchmark {
 
-  @Param({"Full Gradient Theory", "Simple Gradient Theory", "Parachor"})
+  @Param({"Simple Gradient Theory", "Parachor"})
   public String model;
 
   SystemInterface system;

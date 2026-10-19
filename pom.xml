@@ -57,7 +57,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 		<dependency>
 			<groupId>com.equinor.neqsim</groupId>
 			<artifactId>neqsim</artifactId>
-            <version>${neqsim.version}</version>
+			<version>${neqsim.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.openjdk.jmh</groupId>
@@ -70,56 +70,51 @@ THE POSSIBILITY OF SUCH DAMAGE.
 			<version>${jmh.version}</version>
 			<scope>provided</scope>
 		</dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>${junit.version}</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>${junit.version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
-        <!--
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<!--
 			NeqSim version to benchmark. Override on the command line to benchmark a locally
 			installed build, e.g. mvn clean verify -Dneqsim.version=3.26.0-SNAPSHOT
 		  -->
-        <neqsim.version>3.7.0</neqsim.version>
-
-        <junit.version>5.11.4</junit.version>
-
-        <!--
+		<neqsim.version>3.1.0</neqsim.version>
+		<junit.version>5.11.4</junit.version>
+		<!--
 			JMH version to use with this project.
 		  -->
-        <jmh.version>1.37</jmh.version>
-
-        <!--
+		<jmh.version>1.37</jmh.version>
+		<!--
 			Java source/target to use for compilation.
 		  -->
-        <javac.target>17</javac.target>
-
-        <!--
+		<javac.target>17</javac.target>
+		<!--
 			Name of the benchmark Uber-JAR to generate.
 		  -->
-        <uberjar.name>benchmarks</uberjar.name>
-    </properties>
+		<uberjar.name>benchmarks</uberjar.name>
+	</properties>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.13.0</version>
 				<configuration>
-                    <release>${javac.target}</release>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.openjdk.jmh</groupId>
-                            <artifactId>jmh-generator-annprocess</artifactId>
-                            <version>${jmh.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
+					<release>${javac.target}</release>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.openjdk.jmh</groupId>
+							<artifactId>jmh-generator-annprocess</artifactId>
+							<version>${jmh.version}</version>
+						</path>
+					</annotationProcessorPaths>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -144,7 +139,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 							</transformers>
 							<filters>
 								<filter>
-                                    <!--
+									<!--
 										Shading signed JARs will fail without this.
 										http://stackoverflow.com/questions/999489/invalid-signature-file-when-attempting-to-run-a-jar
 									-->
@@ -189,7 +184,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 				</plugin>
 				<plugin>
 					<artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.2</version>
+					<version>3.5.2</version>
 				</plugin>
 			</plugins>
 		</pluginManagement>
