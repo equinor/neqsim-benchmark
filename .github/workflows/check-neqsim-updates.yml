@@ -21,7 +21,7 @@ concurrency:
 jobs:
   check-updates:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 120
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -77,7 +77,7 @@ jobs:
                          key=version_key)
           next_version = newer[0] if newer else ""
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"version={next_version}\nproperty={property_name}\n")
+              output.write(f"version={next_version}\nproperty={property_name}\ncurrent={current}\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
               summary.write(f"Current NeqSim: {current}. Next release: {next_version or 'none'}.\n")
 
@@ -111,9 +111,28 @@ jobs:
             echo "The next NeqSim release is available; verifying the build." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Verify updated dependency
+      - name: Benchmark current and next NeqSim releases
         if: steps.update.outputs.changed == 'true'
-        run: mvn --batch-mode --no-transfer-progress clean verify
+        env:
+          BASELINE_VERSION: ${{ steps.next.outputs.current }}
+          CURRENT_VERSION: ${{ steps.next.outputs.version }}
+          NEQSIM_PROPERTY: ${{ steps.next.outputs.property }}
+        run: bash .github/scripts/run-benchmark-timings.sh "$BASELINE_VERSION" "$CURRENT_VERSION"
+
+      - name: Save benchmark results and build failures beside the updated POM
+        if: steps.update.outputs.changed == 'true'
+        env:
+          BASELINE_VERSION: ${{ steps.next.outputs.current }}
+          CURRENT_VERSION: ${{ steps.next.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 .github/scripts/benchmark-timings.py \
+            "$RUNNER_TEMP/baseline-benchmarks.json" "$RUNNER_TEMP/current-benchmarks.json" \
+            --baseline-version "$BASELINE_VERSION" --current-version "$CURRENT_VERSION" \
+            --baseline-list "$RUNNER_TEMP/baseline-benchmarks.txt" \
+            --current-list "$RUNNER_TEMP/current-benchmarks.txt" \
+            --archive-dir benchmark-results --pom-file pom.xml \
+            --source-commit "$(git rev-parse HEAD)" --run-url "$RUN_URL"
 
       - name: Open or update dependency pull request
         if: steps.update.outputs.changed == 'true'
@@ -122,15 +141,19 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: automation/neqsim-update
           delete-branch: true
-          add-paths: pom.xml
+          add-paths: |
+            pom.xml
+            benchmark-results/
           commit-message: "build: update NeqSim to ${{ steps.next.outputs.version }}"
           title: "build: update NeqSim to ${{ steps.next.outputs.version }}"
           body: |
             Update `com.equinor.neqsim:neqsim` to the next stable release, ${{ steps.next.outputs.version }}.
 
-            Only the NeqSim dependency version is updated. Prereleases are excluded.
+            The updated POM and full benchmark timing results are included in this PR.
+            Both versions were checked with Java 21. See the saved reports for build and timing status.
+            The results include the exact POM snapshot, tables, raw JMH JSON, and transcripts.
+            Maven build failures are recorded without blocking this PR; incomplete runs report no overall gain.
+            Incomplete results do not qualify for a benchmark-verified release. Prereleases are excluded.
             Intermediate stable releases are not skipped. After this PR is merged,
             the workflow checks for the next version and opens a separate PR if needed.
-            The updated project passed `mvn clean verify` with Java 21.
-
             Review compatibility and benchmark results before merging.

@@ -3,11 +3,17 @@ name: Release NeqSim Update
 on:
   push:
     branches: [main]
-    paths: [pom.xml]
+    paths:
+      - benchmark-results/releases/**/comparison.json
+  workflow_run:
+    workflows: [Compare Benchmark Timings]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: release-neqsim-update
@@ -15,22 +21,47 @@ concurrency:
 
 jobs:
   release:
-    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    if: >-
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
+      (github.event_name == 'push' &&
+       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event != 'pull_request' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == github.event.repository.default_branch)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Run benchmarks before a manually requested release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: gh workflow run benchmark-timings.yml --ref "$DEFAULT_BRANCH"
+
       - name: Check out repository
+        if: github.event_name != 'workflow_dispatch'
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'push' && github.sha || github.event.repository.default_branch }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Detect NeqSim version change
+      - name: Verify committed benchmark results and release target
+        if: github.event_name != 'workflow_dispatch'
         id: neqsim
         shell: python
         env:
-          BEFORE: ${{ github.event.before }}
+          BENCHMARK_RUN_ID: ${{ github.event.workflow_run.id }}
+          BENCHMARK_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          BENCHMARK_SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha }}
           EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
         run: |
+          import json
           import os
           import subprocess
           import xml.etree.ElementTree as ET
@@ -44,53 +75,95 @@ jobs:
                   artifact = dependency.findtext("m:artifactId", namespaces=namespace)
                   if group == "com.equinor.neqsim" and artifact == "neqsim":
                       version = dependency.findtext("m:version", namespaces=namespace)
+                      if version and version.strip().startswith("${") and version.strip().endswith("}"):
+                          property_name = version.strip()[2:-1]
+                          version = root.findtext(f"m:properties/m:{property_name}", namespaces=namespace)
                       if version and version.strip() and "${" not in version:
                           return version.strip()
-                      raise ValueError("NeqSim must have an explicit dependency version")
+                      raise ValueError("NeqSim dependency version could not be resolved")
               raise ValueError("NeqSim dependency not found")
 
-          version = neqsim_version(Path("pom.xml").read_bytes())
-          before = os.environ.get("BEFORE", "")
-          previous_version = None
-          if before and set(before) != {"0"}:
-              previous_pom = subprocess.check_output(["git", "show", f"{before}:pom.xml"])
-              previous_version = neqsim_version(previous_pom)
-
-          changed = os.environ["EVENT_NAME"] == "workflow_dispatch" or version != previous_version
+          if os.environ["EVENT_NAME"] == "push":
+              before = os.environ.get("BEFORE", "")
+              if before and set(before) != {"0"}:
+                  changed = subprocess.check_output(
+                      ["git", "diff", "--name-only", before, "HEAD", "--", "benchmark-results/releases"],
+                      text=True).splitlines()
+                  paths = [Path(path) for path in changed
+                           if path.endswith("/comparison.json") and Path(path).is_file()]
+              else:
+                  paths = list(Path("benchmark-results/releases").glob("*/from-*/run-*/comparison.json"))
+              paths = [path for path in paths if json.loads(path.read_text()).get("status") == "complete"]
+          else:
+              run_id = os.environ["BENCHMARK_RUN_ID"]
+              attempt = os.environ["BENCHMARK_RUN_ATTEMPT"]
+              if not run_id.isdigit() or not attempt.isdigit():
+                  raise ValueError("Invalid benchmark run identifiers")
+              paths = list(Path("benchmark-results/releases").glob(
+                  f"*/from-*/run-{run_id}-{attempt}/comparison.json"))
+          if not paths:
+              with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                  output.write("ready=false\n")
+              raise SystemExit(0)
+          candidates = [(path, json.loads(path.read_text())) for path in paths]
+          record_path, record = max(candidates, key=lambda item: (int(item[1]["run_id"]),
+                                                                  int(item[1]["run_attempt"])))
+          source_commit = record["source_commit"]
+          if record.get("status") != "complete":
+              raise ValueError("Benchmark comparison is incomplete")
+          if os.environ["EVENT_NAME"] == "workflow_run":
+              if (source_commit != os.environ["BENCHMARK_SOURCE_COMMIT"]
+                      or record.get("run_id") != os.environ["BENCHMARK_RUN_ID"]
+                      or record.get("run_attempt") != os.environ["BENCHMARK_RUN_ATTEMPT"]):
+                  raise ValueError("Benchmark results belong to a different run")
+          if not source_commit or not all(character in "0123456789abcdef" for character in source_commit):
+              raise ValueError("Invalid benchmark source commit")
+          for name in ("pom.xml", "comparison.md", "transcript.md",
+                       "baseline-benchmarks.json", "current-benchmarks.json"):
+              if not record_path.with_name(name).is_file():
+                  raise ValueError(f"Missing benchmark evidence: {name}")
+          target = subprocess.check_output(
+              ["git", "log", "-1", "--format=%H", "--", str(record_path)], text=True).strip()
+          if not target:
+              raise ValueError("Benchmark results have not been committed")
+          pom = subprocess.check_output(["git", "show", f"{target}:pom.xml"])
+          if pom != record_path.with_name("pom.xml").read_bytes():
+              raise ValueError("The results commit POM differs from the benchmarked POM")
+          version = neqsim_version(pom)
+          if version != record.get("current_version"):
+              raise ValueError("The results commit contains a different NeqSim version; rerun benchmarks")
+          subprocess.run(["git", "diff", "--exit-code", source_commit, target, "--",
+                          "src", ".github/scripts/benchmark-timings.py",
+                          ".github/scripts/run-benchmark-timings.sh"], check=True)
           tag = f"neqsim-{version}"
           subprocess.run(["git", "check-ref-format", f"refs/tags/{tag}"], check=True)
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"changed={str(changed).lower()}\nversion={version}\ntag={tag}\n")
+              output.write(f"ready=true\nversion={version}\ntag={tag}\ncommit={target}\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
-              summary.write(f"NeqSim: {previous_version or 'no previous version'} -> {version}\n")
-
-      - name: Set up Java
-        if: steps.neqsim.outputs.changed == 'true'
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-          cache: maven
-
-      - name: Build and verify benchmarks
-        if: steps.neqsim.outputs.changed == 'true'
-        run: |
-          mvn --batch-mode --no-transfer-progress clean verify
-          java -jar target/benchmarks.jar -l
+              summary.write(f"NeqSim {version}: releasing results commit {target}.\n")
 
       - name: Publish GitHub release
-        if: steps.neqsim.outputs.changed == 'true'
+        if: steps.neqsim.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           NEQSIM_VERSION: ${{ steps.neqsim.outputs.version }}
           RELEASE_TAG: ${{ steps.neqsim.outputs.tag }}
+          RELEASE_COMMIT: ${{ steps.neqsim.outputs.commit }}
         run: |
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists; leaving it unchanged." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           gh release create "$RELEASE_TAG" \
-            --target "$GITHUB_SHA" \
+            --target "$RELEASE_COMMIT" \
             --title "NeqSim $NEQSIM_VERSION benchmarks" \
-            --notes "Updated benchmark project to NeqSim $NEQSIM_VERSION. Build verification and JMH benchmark discovery passed with Java 21; performance benchmarks were not run. No JAR is attached."
+            --notes "Updated benchmark project to NeqSim $NEQSIM_VERSION. Full benchmark timing comparison passed with Java 21. This release targets the commit containing both the benchmarked POM and committed benchmark-results tables, raw results, and transcripts. No JAR is attached."
+
+      - name: Check for the next NeqSim update after release
+        if: steps.neqsim.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: gh workflow run check-neqsim-updates.yml --ref "$DEFAULT_BRANCH"
