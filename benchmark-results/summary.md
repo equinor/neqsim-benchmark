@@ -8,4 +8,4 @@ Versions come from embedded dependency JAR metadata when available; (requested) 
 
 | Release | Baseline | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |
 | --- | --- | --- | ---: | ---: | ---: | --- | --- |
-| unknown | unknown | not recorded | 0 | 0 / 0 | n/a | incomplete | [View results](releases/neqsim-unknown/from-unknown/run-39326847911-1/comparison.md) |
+| 3.1.2 | 3.1.0 | baseline: failed (exit 1); current: failed (exit 1) | 0 | 0 / 0 | n/a | incomplete | [View results](releases/neqsim-3.1.2/from-3.1.0/run-39328461789-1/comparison.md) |
