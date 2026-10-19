@@ -1,0 +1,96 @@
+name: Release NeqSim Update
+
+on:
+  push:
+    branches: [main]
+    paths: [pom.xml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-neqsim-update
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect NeqSim version change
+        id: neqsim
+        shell: python
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          import os
+          import subprocess
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          def neqsim_version(pom):
+              root = ET.fromstring(pom)
+              namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+              for dependency in root.findall("m:dependencies/m:dependency", namespace):
+                  group = dependency.findtext("m:groupId", namespaces=namespace)
+                  artifact = dependency.findtext("m:artifactId", namespaces=namespace)
+                  if group == "com.equinor.neqsim" and artifact == "neqsim":
+                      version = dependency.findtext("m:version", namespaces=namespace)
+                      if version and version.strip() and "${" not in version:
+                          return version.strip()
+                      raise ValueError("NeqSim must have an explicit dependency version")
+              raise ValueError("NeqSim dependency not found")
+
+          version = neqsim_version(Path("pom.xml").read_bytes())
+          before = os.environ.get("BEFORE", "")
+          previous_version = None
+          if before and set(before) != {"0"}:
+              previous_pom = subprocess.check_output(["git", "show", f"{before}:pom.xml"])
+              previous_version = neqsim_version(previous_pom)
+
+          changed = os.environ["EVENT_NAME"] == "workflow_dispatch" or version != previous_version
+          tag = f"neqsim-{version}"
+          subprocess.run(["git", "check-ref-format", f"refs/tags/{tag}"], check=True)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"changed={str(changed).lower()}\nversion={version}\ntag={tag}\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(f"NeqSim: {previous_version or 'no previous version'} -> {version}\n")
+
+      - name: Set up Java
+        if: steps.neqsim.outputs.changed == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build and verify benchmarks
+        if: steps.neqsim.outputs.changed == 'true'
+        run: |
+          mvn --batch-mode --no-transfer-progress clean verify
+          java -jar target/benchmarks.jar -l
+
+      - name: Publish GitHub release
+        if: steps.neqsim.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          NEQSIM_VERSION: ${{ steps.neqsim.outputs.version }}
+          RELEASE_TAG: ${{ steps.neqsim.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; leaving it unchanged." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "NeqSim $NEQSIM_VERSION benchmarks" \
+            --notes "Updated benchmark project to NeqSim $NEQSIM_VERSION. Build verification and JMH benchmark discovery passed with Java 21; performance benchmarks were not run. No JAR is attached."
