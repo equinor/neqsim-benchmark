@@ -5,6 +5,8 @@ baseline_version="$1"
 current_version="$2"
 version_property="${NEQSIM_PROPERTY-neqsim.version}"
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+python3 "$script_dir/benchmark-revision.py" --repository "$PWD" \
+  --output "$RUNNER_TEMP/benchmark-revision.json" --summary "$GITHUB_STEP_SUMMARY"
 project_dir="$RUNNER_TEMP/benchmark-project"
 mkdir -p "$project_dir"
 cp pom.xml "$project_dir/pom.xml"

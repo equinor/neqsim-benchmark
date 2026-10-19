@@ -36,7 +36,20 @@ def confidence_note(baseline, current):
     return "Overlapping CIs"
 
 
-def summarize(baseline, current, baseline_version, current_version, expected, limit=10):
+def load_benchmark_revision(directory):
+    path = directory / "benchmark-revision.json"
+    if not path.exists():
+        return None
+    revision = json.loads(path.read_text())
+    if (not isinstance(revision.get("number"), int)
+            or not re.fullmatch(r"[0-9a-f]{64}", revision.get("fingerprint", ""))
+            or revision.get("label") != f"B{revision['number']}-{revision['fingerprint'][:12]}"):
+        raise ValueError("Invalid benchmark suite revision metadata")
+    return revision
+
+
+def summarize(baseline, current, baseline_version, current_version, expected, limit=10,
+              benchmark_revision=None):
     missing_baseline = expected - {key[0] for key in baseline}
     missing_current = expected - {key[0] for key in current}
     unmatched = baseline.keys() ^ current.keys()
@@ -55,6 +68,7 @@ def summarize(baseline, current, baseline_version, current_version, expected, li
         "## Benchmark Timing Comparison",
         "",
         f"NeqSim **{baseline_version} -> {current_version}**, using identical benchmark sources.",
+        "Benchmark suite revision: " + (f"`{benchmark_revision['label']}`" if benchmark_revision else "not recorded"),
         f"{len(changes)} benchmark/parameter cases: {faster} lower, {slower} higher, "
         f"{len(changes) - faster - slower} unchanged mean timings.",
         "",
@@ -90,6 +104,7 @@ def summarize(baseline, current, baseline_version, current_version, expected, li
 
 def archive_results(args):
     source_dir = args.current.parent
+    benchmark_revision = load_benchmark_revision(source_dir)
     requested_versions = {"baseline": args.baseline_version, "current": args.current_version}
     artifact_versions = {}
     for variant in ("baseline", "current"):
@@ -134,7 +149,8 @@ def archive_results(args):
                 for line in path.read_text().splitlines()
                 if line.strip().startswith("com.equinor.neqsim.benchmark.")}
     report, incomplete = summarize(baseline, current, args.baseline_version,
-                                   args.current_version, expected, limit=None)
+                                   args.current_version, expected, limit=None,
+                                   benchmark_revision=benchmark_revision)
     complete = (args.status == "success" and bool(expected) and bool(baseline)
                 and bool(current) and not errors and not incomplete)
     matched = sorted(baseline.keys() & current.keys())
@@ -147,6 +163,7 @@ def archive_results(args):
         "run_id": args.run_id,
         "run_attempt": args.run_attempt,
         "source_commit": args.source_commit,
+        "benchmark_revision": benchmark_revision,
         "run_url": args.run_url,
         "status": "complete" if complete else "incomplete",
         "include_in_history": not args.no_history and args.current_version != args.baseline_version,
@@ -184,10 +201,20 @@ def archive_results(args):
         evidence = "embedded Maven pom.properties" if artifact else "requested version only; JAR unavailable"
         artifact_table.append(f"| {variant} | {requested_versions[variant]} | {actual} | {evidence} |")
     report = "\n".join(artifact_table) + "\n\n" + report
+    if benchmark_revision:
+        changes = ["## Benchmark Suite Changes", "",
+                   f"Suite revision: `{benchmark_revision['label']}`. Compare historical timings only for matching revisions.",
+                   "", "| Change | Benchmark file |", "| --- | --- |"]
+        for kind, paths in benchmark_revision["changes"].items():
+            for path in paths:
+                changes.append(f"| {kind} | `{path}` |")
+        if not any(benchmark_revision["changes"].values()):
+            changes.append("| unchanged | No benchmark file changes |")
+        report = "\n".join(changes) + "\n\n" + report
     (destination / "comparison.md").write_text(metadata + "\n" + report + "\n")
     (destination / "comparison.json").write_text(json.dumps(record, indent=2) + "\n")
     transcript = [metadata]
-    for name in ("benchmark-environment.txt", "benchmark-build-summary.md",
+    for name in ("benchmark-revision.json", "benchmark-environment.txt", "benchmark-build-summary.md",
                  "baseline-artifact.json", "current-artifact.json",
                  "baseline-build-exit-code.txt", "baseline-build.log", "baseline-benchmarks.txt",
                  "baseline-benchmarks.log", "current-build-exit-code.txt", "current-build.log", "current-benchmarks.txt",
@@ -209,6 +236,8 @@ def archive_results(args):
         shutil.copyfile(path, destination / path.name)
     if args.pom_file:
         shutil.copyfile(args.pom_file, destination / "pom.xml")
+    if benchmark_revision:
+        shutil.copyfile(source_dir / "benchmark-revision.json", destination / "benchmark-revision.json")
     if record["include_in_history"]:
         update_history(args.archive_dir)
     return record
@@ -222,7 +251,8 @@ def update_history(root):
     transitions = set()
     release_records = []
     for path, record in records:
-        transition = (record["baseline_version"], record["current_version"])
+        revision = record.get("benchmark_revision") or {}
+        transition = (record["baseline_version"], record["current_version"], revision.get("label"))
         if (not record.get("include_in_history", True) or transition[0] == transition[1]
                 or transition in transitions):
             continue
@@ -237,10 +267,12 @@ def update_history(root):
         "compare matching benchmark sets and inspect confidence intervals in comparison.md.",
         "Versions come from embedded dependency JAR metadata when available; (requested) means the JAR could not be inspected.",
         "",
-        "| Release | Baseline | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |",
-        "| --- | --- | --- | ---: | ---: | ---: | --- | --- |",
+        "Benchmark suite revisions identify source and measurement-runner changes; do not attribute cross-revision timing changes to NeqSim alone.",
+        "",
+        "| Release | Baseline | Benchmark Revision | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |",
+        "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |",
     ]
-    for path, record in release_records:
+    for path, record in reversed(release_records):
         gain = f"{record['gain_percent']:+.2f}%" if record["gain_percent"] is not None else "n/a"
         report_path = path.with_name("comparison.md")
         if not report_path.exists():
@@ -250,6 +282,8 @@ def update_history(root):
         for variant, result in record.get("build_status", {}).items():
             builds.append(f"{variant}: {result['status']} (exit {result['exit_code']})")
         build_text = "; ".join(builds) or "not recorded"
+        revision = record.get("benchmark_revision") or {}
+        suite_label = revision.get("label", "not recorded")
         current_label = record["current_version"]
         baseline_label = record["baseline_version"]
         if "artifact_versions" in record:
@@ -258,7 +292,7 @@ def update_history(root):
             if "baseline" not in record["artifact_versions"]:
                 baseline_label += " (requested)"
         lines.append(f"| {current_label} | {baseline_label} "
-                     f"| {build_text} | {record['matched_cases']} "
+                     f"| {suite_label} | {build_text} | {record['matched_cases']} "
                      f"| {record['faster_cases']} / {record['slower_cases']} "
                      f"| {gain} | {record['status']} | [View results]({report}) |")
     (root / "summary.md").write_text("\n".join(lines) + "\n")
@@ -294,7 +328,8 @@ def main():
     if not expected:
         raise ValueError("JMH did not discover any benchmark methods")
     report, incomplete = summarize(load_results(args.baseline), load_results(args.current),
-                                   args.baseline_version, args.current_version, expected)
+                                   args.baseline_version, args.current_version, expected,
+                                   benchmark_revision=load_benchmark_revision(args.current.parent))
     print(report)
     if incomplete:
         raise SystemExit(1)

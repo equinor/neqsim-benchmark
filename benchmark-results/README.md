@@ -6,10 +6,27 @@ as the geometric mean of the current/baseline timing ratios. Compare runs with
 the same benchmark cases; incomplete runs have no reported overall gain.
 
 Release history is updated only by the dependency updater when NeqSim changes,
-with one row for the first report of each baseline-to-release transition.
+with one row for the first report of each baseline-to-release transition and
+benchmark-suite revision. Different suite revisions remain separate even for
+the same NeqSim version pair.
 Standalone benchmark runs save their reports without changing `summary.md`.
 Their `comparison.json` sets `include_in_history` to `false`, so later history
 rebuilds also exclude them. Deduplicating history does not delete per-run reports.
+
+## Benchmark Suite Identity
+Each run captures a revision such as `B12-4fb8a37f291c` before Maven runs, so build
+failures still retain the suite identity. The number counts benchmark-changing
+commits on the measured commit's first-parent history. The hash covers file paths
+and contents in `src/main/java`, `src/main/resources`, and the measurement runner
+[run-benchmark-timings.sh](../.github/scripts/run-benchmark-timings.sh).
+Uncommitted changes use the next number and a distinct content hash.
+
+The archived `benchmark-revision.json` contains file hashes, the source commit,
+and added/modified/deleted file lists relative to the previous suite revision.
+These changes appear as a table in `comparison.md`; the history has a **Benchmark
+Revision** column. POM-only NeqSim updates and result files are excluded. Old
+reports show `not recorded`, not an inferred revision. A change in suite revision
+means historical timing changes cannot be attributed to NeqSim alone.
 
 Versions are read from the resolved NeqSim dependency JAR's embedded Maven
 `pom.properties` before compilation. This identity survives a failed build and
@@ -33,6 +50,7 @@ Each comparison writes one directory per release, baseline, and run:
 releases/neqsim-<release>/from-<baseline>/run-<id>-<attempt>/
   comparison.md
   comparison.json
+  benchmark-revision.json
   pom.xml
   transcript.md
   baseline-benchmarks.json

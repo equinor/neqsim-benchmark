@@ -1,10 +1,6 @@
 name: Release NeqSim Update
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - benchmark-results/releases/**/comparison.json
   workflow_run:
     workflows: [Compare Benchmark Timings]
     types: [completed]
@@ -23,8 +19,6 @@ jobs:
   release:
     if: >-
       (github.event_name == 'workflow_dispatch' &&
-       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
-      (github.event_name == 'push' &&
        github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
@@ -46,7 +40,7 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ github.event_name == 'push' && github.sha || github.event.repository.default_branch }}
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -58,8 +52,6 @@ jobs:
           BENCHMARK_RUN_ID: ${{ github.event.workflow_run.id }}
           BENCHMARK_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           BENCHMARK_SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha }}
-          EVENT_NAME: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
         run: |
           import json
           import os
@@ -83,24 +75,12 @@ jobs:
                       raise ValueError("NeqSim dependency version could not be resolved")
               raise ValueError("NeqSim dependency not found")
 
-          if os.environ["EVENT_NAME"] == "push":
-              before = os.environ.get("BEFORE", "")
-              if before and set(before) != {"0"}:
-                  changed = subprocess.check_output(
-                      ["git", "diff", "--name-only", before, "HEAD", "--", "benchmark-results/releases"],
-                      text=True).splitlines()
-                  paths = [Path(path) for path in changed
-                           if path.endswith("/comparison.json") and Path(path).is_file()]
-              else:
-                  paths = list(Path("benchmark-results/releases").glob("*/from-*/run-*/comparison.json"))
-              paths = [path for path in paths if json.loads(path.read_text()).get("status") == "complete"]
-          else:
-              run_id = os.environ["BENCHMARK_RUN_ID"]
-              attempt = os.environ["BENCHMARK_RUN_ATTEMPT"]
-              if not run_id.isdigit() or not attempt.isdigit():
-                  raise ValueError("Invalid benchmark run identifiers")
-              paths = list(Path("benchmark-results/releases").glob(
-                  f"*/from-*/run-{run_id}-{attempt}/comparison.json"))
+          run_id = os.environ["BENCHMARK_RUN_ID"]
+          attempt = os.environ["BENCHMARK_RUN_ATTEMPT"]
+          if not run_id.isdigit() or not attempt.isdigit():
+              raise ValueError("Invalid benchmark run identifiers")
+          paths = list(Path("benchmark-results/releases").glob(
+              f"*/from-*/run-{run_id}-{attempt}/comparison.json"))
           if not paths:
               with open(os.environ["GITHUB_OUTPUT"], "a") as output:
                   output.write("ready=false\n")
@@ -111,11 +91,10 @@ jobs:
           source_commit = record["source_commit"]
           if record.get("status") != "complete":
               raise ValueError("Benchmark comparison is incomplete")
-          if os.environ["EVENT_NAME"] == "workflow_run":
-              if (source_commit != os.environ["BENCHMARK_SOURCE_COMMIT"]
-                      or record.get("run_id") != os.environ["BENCHMARK_RUN_ID"]
-                      or record.get("run_attempt") != os.environ["BENCHMARK_RUN_ATTEMPT"]):
-                  raise ValueError("Benchmark results belong to a different run")
+          if (source_commit != os.environ["BENCHMARK_SOURCE_COMMIT"]
+                  or record.get("run_id") != os.environ["BENCHMARK_RUN_ID"]
+                  or record.get("run_attempt") != os.environ["BENCHMARK_RUN_ATTEMPT"]):
+              raise ValueError("Benchmark results belong to a different run")
           if not source_commit or not all(character in "0123456789abcdef" for character in source_commit):
               raise ValueError("Invalid benchmark source commit")
           for name in ("pom.xml", "comparison.md", "transcript.md",
@@ -135,7 +114,8 @@ jobs:
           subprocess.run(["git", "diff", "--exit-code", source_commit, target, "--",
                           "src", ".github/scripts/benchmark-timings.py",
                           ".github/scripts/run-benchmark-timings.sh",
-                          ".github/scripts/neqsim-jar-version.py"], check=True)
+                          ".github/scripts/neqsim-jar-version.py",
+                          ".github/scripts/benchmark-revision.py"], check=True)
           tag = f"neqsim-{version}"
           subprocess.run(["git", "check-ref-format", f"refs/tags/{tag}"], check=True)
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
@@ -160,11 +140,3 @@ jobs:
             --target "$RELEASE_COMMIT" \
             --title "NeqSim $NEQSIM_VERSION benchmarks" \
             --notes "Updated benchmark project to NeqSim $NEQSIM_VERSION. Full benchmark timing comparison passed with Java 21. This release targets the commit containing both the benchmarked POM and committed benchmark-results tables, raw results, and transcripts. No JAR is attached."
-
-      - name: Check for the next NeqSim update after release
-        if: steps.neqsim.outputs.ready == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: gh workflow run check-neqsim-updates.yml --ref "$DEFAULT_BRANCH"

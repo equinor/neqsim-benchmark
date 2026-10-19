@@ -20,11 +20,9 @@ other version or blocking the update PR. The PR includes the updated POM,
 available timing data, full build logs, explicit build exit codes, and a snapshot
 of the measured POM. Failed builds mark the comparison incomplete and report no
 overall timing gain. JMH execution failures still fail the benchmark step. Intermediate stable
-releases are not skipped. Each merge that changes [pom.xml](pom.xml) on `main`
-triggers another check, so the next version gets a separate PR after the previous
-one is merged. Publishing a release in this repository also triggers a check.
-The automated release workflow explicitly dispatches that check because releases
-created with `GITHUB_TOKEN` do not trigger other workflows automatically.
+releases are not skipped. After an update PR is merged, the next weekly or manual
+check opens a separate PR for the next version if needed. Merges and published
+releases do not trigger update checks.
 It does not merge automatically.
 
 Enable **Allow GitHub Actions to create and approve pull requests** under
@@ -33,8 +31,9 @@ The workflow uses the built-in `GITHUB_TOKEN`; no additional secret is required.
 
 ## Automatic releases
 The [Release NeqSim Update workflow](.github/workflows/release-neqsim-update.yml)
-runs when an update PR containing complete benchmark records is merged into the
-default branch, or after a successful standalone **Compare Benchmark Timings** run.
+runs after a successful **Compare Benchmark Timings** run on the default branch.
+Merging an update PR starts only **Compare Benchmark Timings**; release verification
+waits for that run to finish successfully and uses its committed results.
 A GitHub release tagged `neqsim-<version>` targets the commit containing both the
 updated POM and results. Before publishing, it verifies that the committed POM
 exactly matches the measured snapshot and benchmark sources have not changed
@@ -44,11 +43,11 @@ No JAR or build artifact is uploaded.
 
 Running the release workflow manually on the default branch starts the benchmark
 workflow first; release creation follows its successful completion. Existing
-releases are left unchanged. Merged result records are detected by a path filter;
-standalone report commits made with `GITHUB_TOKEN` use a `workflow_run` completion
-trigger because those commits do not trigger push workflows.
+releases are left unchanged. The `workflow_run` completion trigger allows release
+verification to follow report commits made with `GITHUB_TOKEN`, which do not
+trigger push workflows.
 It uses the built-in `GITHUB_TOKEN` with repository contents write permission
-and Actions write permission to dispatch the next update check.
+and Actions write permission to dispatch benchmarks for a manual release request.
 
 ## Benchmark timing comparisons
 The [Compare Benchmark Timings workflow](.github/workflows/benchmark-timings.yml)
@@ -63,7 +62,8 @@ per operation and percent, with confidence-interval overlap noted.
 [benchmark-results/summary.md](benchmark-results/summary.md) keeps a cumulative Markdown
 table of releases, baselines, case counts, timing gains, and completeness status.
 Only the dependency updater changes this history, when it updates NeqSim.
-The table keeps the first report for each baseline-to-release transition.
+The table keeps the first report for each baseline-to-release transition and
+benchmark-suite revision. Different benchmark revisions are never deduplicated together.
 Standalone benchmark runs retain their per-run reports and Actions summaries,
 but do not update release history or enter it during later rebuilds.
 Each release comparison also keeps a full build/JMH transcript, raw JMH JSON,
@@ -88,6 +88,20 @@ The reported NeqSim version comes from the resolved dependency JAR's embedded
 Maven metadata, captured before compilation. Failed builds therefore retain
 their JAR version. If a JAR cannot be resolved, its requested version is labelled
 as such instead of being reported as verified.
+
+### Benchmark suite revisions
+Every run records a suite revision such as `B12-4fb8a37f291c` before building.
+The number counts first-parent Git commits that change benchmark Java sources,
+resources, or the measurement runner; the hash identifies the exact paths and
+contents. Adding, editing, renaming, or deleting a benchmark changes its identity.
+NeqSim-only POM version changes and generated results do not change it.
+
+The Actions summary, result JSON, archived `benchmark-revision.json`, per-run
+comparison, and history table all show the revision. Each comparison lists added,
+modified, and deleted files relative to the previous suite revision. Old results
+without revision evidence show `not recorded`. Compare core performance across
+releases using matching suite revisions; otherwise the benchmark itself changed.
+Uncommitted benchmark changes use the next revision number with their own hash.
 
 ## Benchmarks
 The benchmarks are based on the `@Tag("benchmark")` tests and the slow process tests in
