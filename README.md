@@ -21,5 +21,17 @@ Enable **Allow GitHub Actions to create and approve pull requests** under
 **Settings > Actions > General > Workflow permissions** for PR creation.
 The workflow uses the built-in `GITHUB_TOKEN`; no additional secret is required.
 
+## Automatic releases
+The [Release NeqSim Update workflow](.github/workflows/release-neqsim-update.yml)
+runs when a change to [pom.xml](pom.xml) reaches `main`. If the NeqSim dependency
+version changed, it builds and verifies the project with Java 21, checks JMH
+benchmark discovery, and publishes a GitHub release tagged `neqsim-<version>`.
+No JAR or build artifact is uploaded. Full performance benchmarks are not run
+automatically. Other POM changes do not create releases.
+
+The workflow can also be run manually on the default branch to publish the
+current version or retry a failed release. Existing releases are left unchanged.
+It uses the built-in `GITHUB_TOKEN` with repository contents write permission.
+
 ## Add benchmark methods
 Add methods under folder [benchmark](src/main/java/com/equinor/neqsim/benchmark). Remember to use decorator @Benchmark.
