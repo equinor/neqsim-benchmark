@@ -10,6 +10,7 @@ Benchmark suite revisions identify source and measurement-runner changes; do not
 
 | Release | Baseline | Benchmark Revision | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |
 | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |
+| 3.3.0 | 3.2.2 | B7-732030da1a1d | baseline: failed (exit 1); current: failed (exit 1) | 0 | 0 / 0 | n/a | incomplete | [View results](releases/neqsim-3.3.0/from-3.2.2/run-39333112799-1/comparison.md) |
 | 3.2.2 | 3.2.1 | B7-732030da1a1d | baseline: failed (exit 1); current: failed (exit 1) | 0 | 0 / 0 | n/a | incomplete | [View results](releases/neqsim-3.2.2/from-3.2.1/run-39332919384-1/comparison.md) |
 | 3.2.1 | 3.2.0 | not recorded | baseline: failed (exit 1); current: failed (exit 1) | 0 | 0 / 0 | n/a | incomplete | [View results](releases/neqsim-3.2.1/from-3.2.0/run-39331404791-1/comparison.md) |
 | 3.2.0 | 3.1.5 | not recorded | baseline: failed (exit 1); current: failed (exit 1) | 0 | 0 / 0 | n/a | incomplete | [View results](releases/neqsim-3.2.0/from-3.1.5/run-39331054963-1/comparison.md) |
