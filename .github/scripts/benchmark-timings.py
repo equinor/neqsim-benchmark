@@ -89,6 +89,19 @@ def summarize(baseline, current, baseline_version, current_version, expected, li
 
 
 def archive_results(args):
+    source_dir = args.current.parent
+    requested_versions = {"baseline": args.baseline_version, "current": args.current_version}
+    artifact_versions = {}
+    for variant in ("baseline", "current"):
+        path = source_dir / f"{variant}-artifact.json"
+        if path.exists():
+            artifact = json.loads(path.read_text())
+            version = artifact["version"]
+            if not re.fullmatch(r"[0-9][0-9A-Za-z.+_-]*", version):
+                raise ValueError(f"Invalid captured JAR version: {version!r}")
+            requested_versions[variant] = artifact.get("requested_version", requested_versions[variant])
+            artifact_versions[variant] = artifact
+            setattr(args, f"{variant}_version", version)
     identifiers = (args.baseline_version, args.current_version, args.run_id, args.run_attempt)
     if not all(value and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]*", value)
                for value in identifiers):
@@ -97,8 +110,10 @@ def archive_results(args):
                    / f"from-{args.baseline_version}" / f"run-{args.run_id}-{args.run_attempt}")
     destination.mkdir(parents=True, exist_ok=True)
     errors = []
+    for variant, artifact in artifact_versions.items():
+        if artifact["version"] != requested_versions[variant]:
+            errors.append(f"{variant} JAR version differs from requested version {requested_versions[variant]}")
     build_status = {}
-    source_dir = args.current.parent
     for variant in ("baseline", "current"):
         exit_path = source_dir / f"{variant}-build-exit-code.txt"
         if exit_path.exists():
@@ -135,6 +150,8 @@ def archive_results(args):
         "run_url": args.run_url,
         "status": "complete" if complete else "incomplete",
         "build_status": build_status,
+        "requested_versions": requested_versions,
+        "artifact_versions": artifact_versions,
         "matched_cases": len(matched),
         "faster_cases": sum(ratio < 1 for ratio in ratios),
         "slower_cases": sum(ratio > 1 for ratio in ratios),
@@ -158,10 +175,19 @@ def archive_results(args):
         build_table.extend(f"| {variant} | {result['status']} | {result['exit_code']} |"
                            for variant, result in build_status.items())
         report = "\n".join(build_table) + "\n\n" + report
+    artifact_table = ["## NeqSim JAR Versions", "", "| Variant | Requested | JAR version | Evidence |",
+                      "| --- | --- | --- | --- |"]
+    for variant in ("baseline", "current"):
+        artifact = artifact_versions.get(variant)
+        actual = artifact["version"] if artifact else "not resolved"
+        evidence = "embedded Maven pom.properties" if artifact else "requested version only; JAR unavailable"
+        artifact_table.append(f"| {variant} | {requested_versions[variant]} | {actual} | {evidence} |")
+    report = "\n".join(artifact_table) + "\n\n" + report
     (destination / "comparison.md").write_text(metadata + "\n" + report + "\n")
     (destination / "comparison.json").write_text(json.dumps(record, indent=2) + "\n")
     transcript = [metadata]
     for name in ("benchmark-environment.txt", "benchmark-build-summary.md",
+                 "baseline-artifact.json", "current-artifact.json",
                  "baseline-build-exit-code.txt", "baseline-build.log", "baseline-benchmarks.txt",
                  "baseline-benchmarks.log", "current-build-exit-code.txt", "current-build.log", "current-benchmarks.txt",
                  "current-benchmarks.log", "benchmark-timing-summary.md"):
@@ -177,6 +203,9 @@ def archive_results(args):
     for path in (args.baseline, args.current):
         if path.exists():
             shutil.copyfile(path, destination / path.name)
+    for variant in artifact_versions:
+        path = source_dir / f"{variant}-artifact.json"
+        shutil.copyfile(path, destination / path.name)
     if args.pom_file:
         shutil.copyfile(args.pom_file, destination / "pom.xml")
     update_history(args.archive_dir)
@@ -195,6 +224,7 @@ def update_history(root):
         "geometric-mean time reduction across matched benchmark/parameter cases.",
         "Incomplete runs have no overall gain. Hosted-runner timings are indicative;",
         "compare matching benchmark sets and inspect confidence intervals in comparison.md.",
+        "Versions come from embedded dependency JAR metadata when available; (requested) means the JAR could not be inspected.",
         "",
         "| Release | Baseline | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |",
         "| --- | --- | --- | ---: | ---: | ---: | --- | --- |",
@@ -209,7 +239,14 @@ def update_history(root):
         for variant, result in record.get("build_status", {}).items():
             builds.append(f"{variant}: {result['status']} (exit {result['exit_code']})")
         build_text = "; ".join(builds) or "not recorded"
-        lines.append(f"| {record['current_version']} | {record['baseline_version']} "
+        current_label = record["current_version"]
+        baseline_label = record["baseline_version"]
+        if "artifact_versions" in record:
+            if "current" not in record["artifact_versions"]:
+                current_label += " (requested)"
+            if "baseline" not in record["artifact_versions"]:
+                baseline_label += " (requested)"
+        lines.append(f"| {current_label} | {baseline_label} "
                      f"| {build_text} | {record['matched_cases']} "
                      f"| {record['faster_cases']} / {record['slower_cases']} "
                      f"| {gain} | {record['status']} | [View results]({report}) |")

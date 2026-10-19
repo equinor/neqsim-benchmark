@@ -9,6 +9,7 @@ on:
       - .github/workflows/benchmark-timings.yml
       - .github/scripts/benchmark-timings.py
       - .github/scripts/run-benchmark-timings.sh
+      - .github/scripts/neqsim-jar-version.py
   pull_request:
     paths:
       - pom.xml
@@ -16,6 +17,7 @@ on:
       - .github/workflows/benchmark-timings.yml
       - .github/scripts/benchmark-timings.py
       - .github/scripts/run-benchmark-timings.sh
+      - .github/scripts/neqsim-jar-version.py
   workflow_dispatch:
     inputs:
       baseline_version:
@@ -60,46 +62,56 @@ jobs:
           from pathlib import Path
 
           def read_version(pom):
-              root = ET.fromstring(pom)
-              version = root.findtext("{*}properties/{*}neqsim.version")
-              if not version:
-                  raise ValueError("Missing neqsim.version property")
-              return version.strip()
+            root = ET.fromstring(pom)
+            dependency = next((item for item in root.findall("{*}dependencies/{*}dependency")
+                     if item.findtext("{*}groupId") == "com.equinor.neqsim"
+                     and item.findtext("{*}artifactId") == "neqsim"), None)
+            if dependency is None:
+              raise ValueError("NeqSim dependency not found")
+            declared = dependency.findtext("{*}version", "").strip()
+            property_name = declared[2:-1] if re.fullmatch(r"\$\{[^{}]+\}", declared) else ""
+            version = root.findtext(f"{{*}}properties/{{*}}{property_name}") if property_name else declared
+            if not version:
+              raise ValueError(f"Cannot resolve NeqSim version {declared!r}")
+            return version.strip(), property_name
 
-          current = read_version(Path("pom.xml").read_bytes())
+          current, property_name = read_version(Path("pom.xml").read_bytes())
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+            output.write(f"current={current}\nproperty={property_name}\n")
           baseline = os.environ.get("BASELINE_VERSION", "").strip()
           base_sha = os.environ.get("BASE_SHA", "")
           if not baseline and base_sha and set(base_sha) != {"0"}:
-              baseline = read_version(subprocess.check_output(["git", "show", f"{base_sha}:pom.xml"]))
+            baseline = read_version(subprocess.check_output(["git", "show", f"{base_sha}:pom.xml"]))[0]
           if not baseline or baseline == current:
-              url = "https://repo.maven.apache.org/maven2/com/equinor/neqsim/neqsim/maven-metadata.xml"
-              with urllib.request.urlopen(url, timeout=30) as response:
-                  metadata = ET.fromstring(response.read())
-              versions = [element.text.strip() for element in metadata.findall("versioning/versions/version")
-                          if element.text and re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", element.text.strip())]
-              if not re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", current):
-                  raise ValueError("Specify a baseline_version when benchmarking a snapshot")
-              width = max(len(version.split(".")) for version in versions + [current])
+            url = "https://repo.maven.apache.org/maven2/com/equinor/neqsim/neqsim/maven-metadata.xml"
+            with urllib.request.urlopen(url, timeout=30) as response:
+              metadata = ET.fromstring(response.read())
+            versions = [element.text.strip() for element in metadata.findall("versioning/versions/version")
+                  if element.text and re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", element.text.strip())]
+            if not re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", current):
+              raise ValueError("Specify a baseline_version when benchmarking a snapshot")
+            width = max(len(version.split(".")) for version in versions + [current])
 
-              def version_key(version):
-                  parts = tuple(int(part) for part in version.split("."))
-                  return parts + (0,) * (width - len(parts))
+            def version_key(version):
+              parts = tuple(int(part) for part in version.split("."))
+              return parts + (0,) * (width - len(parts))
 
-              previous = [version for version in versions if version_key(version) < version_key(current)]
-              if not previous:
-                  raise ValueError("No previous stable release found; specify baseline_version")
-              baseline = max(previous, key=version_key)
+            previous = [version for version in versions if version_key(version) < version_key(current)]
+            if not previous:
+              raise ValueError("No previous stable release found; specify baseline_version")
+            baseline = max(previous, key=version_key)
           for version in (baseline, current):
-              if not re.fullmatch(r"[0-9][0-9A-Za-z.+_-]*", version):
-                  raise ValueError(f"Invalid NeqSim version: {version!r}")
+            if not re.fullmatch(r"[0-9][0-9A-Za-z.+_-]*", version):
+              raise ValueError(f"Invalid NeqSim version: {version!r}")
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"baseline={baseline}\ncurrent={current}\n")
+            output.write(f"baseline={baseline}\ncurrent={current}\n")
 
       - name: Run all benchmarks for both versions
         shell: bash
         env:
           BASELINE_VERSION: ${{ steps.versions.outputs.baseline }}
           CURRENT_VERSION: ${{ steps.versions.outputs.current }}
+          NEQSIM_PROPERTY: ${{ steps.versions.outputs.property }}
         run: bash .github/scripts/run-benchmark-timings.sh "$BASELINE_VERSION" "$CURRENT_VERSION"
 
       - name: Report incomplete comparison
@@ -120,14 +132,18 @@ jobs:
         if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
         working-directory: .timing-report-repository
         env:
-          BASELINE_VERSION: ${{ steps.versions.outputs.baseline || 'unknown' }}
-          CURRENT_VERSION: ${{ steps.versions.outputs.current || 'unknown' }}
+          BASELINE_VERSION: ${{ steps.versions.outputs.baseline }}
+          CURRENT_VERSION: ${{ steps.versions.outputs.current }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           BENCHMARK_STATUS: ${{ job.status }}
         run: |
           if [[ ! -f "$RUNNER_TEMP/benchmark-timing-summary.md" ]]; then
             echo "No timing summary was generated."
+            exit 0
+          fi
+          if [[ -z "$BASELINE_VERSION" || -z "$CURRENT_VERSION" ]]; then
+            echo "Version selection failed before builds; no benchmark comparison will be recorded." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           git config user.name "github-actions[bot]"
