@@ -85,7 +85,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 			NeqSim version to benchmark. Override on the command line to benchmark a locally
 			installed build, e.g. mvn clean verify -Dneqsim.version=3.26.0-SNAPSHOT
 		  -->
-        <neqsim.version>3.1.5</neqsim.version>
+        <neqsim.version>3.2.0</neqsim.version>
 
         <junit.version>5.11.4</junit.version>
 
