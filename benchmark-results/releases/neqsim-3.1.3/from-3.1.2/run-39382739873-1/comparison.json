@@ -1,0 +1,82 @@
+{
+  "baseline_version": "3.1.2",
+  "current_version": "3.1.3",
+  "run_id": "39382739873",
+  "run_attempt": "1",
+  "source_commit": "8bd35cbbf22c5b837499c3845dff06155f5bd479",
+  "benchmark_revision": {
+    "number": 9,
+    "label": "B9-622f61efe4c9",
+    "fingerprint": "622f61efe4c94ae5045faf5dcdaa32de0ec0e383d473f2cdd6da300d05f9eefd",
+    "source_commit": "8bd35cbbf22c5b837499c3845dff06155f5bd479",
+    "uncommitted_changes": false,
+    "scopes": [
+      "src/main/java",
+      "src/main/resources",
+      ".github/scripts/run-benchmark-timings.sh"
+    ],
+    "files": {
+      ".github/scripts/run-benchmark-timings.sh": "7e6cd1f5a726e6750792500632eac90d1fc63391c2ba28ca9947d7bd14c8ec03",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/FlashBenchmark.java": "8d76e3b7c34740145d23ac38f669707afb3c878c9186413f4c92b402f0e03616",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/TPflash.java": "32301e90ffc60330dd62dad230181e84739a503b10e8785cac221dcbd2fc7c4a",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/TPflash_UMR.java": "00bb0df4688d97db711ca1ad9202c5954634eef6bb0a079d33d161ade7265a0f",
+      "src/main/java/com/equinor/neqsim/benchmark/fluidmechanics/PipeFlowSolverBenchmark.java": "76fdf4910236068de1c14af59b07a4fa1c33995047d29f1d320549dc36f08cab",
+      "src/main/java/com/equinor/neqsim/benchmark/numerics/LinearAlgebraKernelBenchmark.java": "16f62bbeeb45f807cb33681f985a73efefd262c294e06d0f2c696a1f34e3ebf5",
+      "src/main/java/com/equinor/neqsim/benchmark/process/Compressor_Benchmark.java": "4c5fd06e5e1e1888b1fc7fe9accef39262ccf310f028c7741a1d43d54dcfdd50",
+      "src/main/java/com/equinor/neqsim/benchmark/process/ReactorAndNetworkBenchmark.java": "9bd8f04ffa4d4e4a89bb6f72a4730e2578bac7e3ac03739e873bf25ea108acfe",
+      "src/main/java/com/equinor/neqsim/benchmark/process/TEGprocess.java": "47fe7ddce09588ef5f9e570da1dd814f566aa7a7db89ac913c3a4e76004b6c09",
+      "src/main/java/com/equinor/neqsim/benchmark/thermo/InterfacialTensionBenchmark.java": "85e9784370b2baa7dd2baa944668efec195af8ec71c63bff59c6c9d72d976782",
+      "src/main/java/com/equinor/neqsim/benchmark/thermo/PhaseEnvelopeBenchmark.java": "2e28c34b0daeabcb6cd7500246efe3ccf7ea88dffb2786ab25c8eeae0e0a3e32",
+      "src/main/java/com/equinor/neqsim/benchmark/util/BenchmarkFluids.java": "87ea44ebc643643e5acffedeadb95d6bba553daaed4a026d076f38646c77fdb0",
+      "src/main/resources/fluids/platform_feed.e300": "32f4eb0253f888fa2c96a36fe76d26e085dda3308d5a80b11ce9899993aceb7b"
+    },
+    "changes": {
+      "added": [],
+      "modified": [
+        ".github/scripts/run-benchmark-timings.sh"
+      ],
+      "deleted": []
+    }
+  },
+  "run_url": "https://github.com/equinor/neqsim-benchmark/actions/runs/39382739873",
+  "status": "incomplete",
+  "include_in_history": true,
+  "build_status": {
+    "baseline": {
+      "status": "failed",
+      "exit_code": 1
+    },
+    "current": {
+      "status": "failed",
+      "exit_code": 1
+    }
+  },
+  "requested_versions": {
+    "baseline": "3.1.2",
+    "current": "3.1.3"
+  },
+  "artifact_versions": {
+    "baseline": {
+      "requested_version": "3.1.2",
+      "version": "3.1.2",
+      "jar": "/home/runner/.m2/repository/com/equinor/neqsim/neqsim/3.1.2/neqsim-3.1.2.jar",
+      "source": "embedded Maven pom.properties"
+    },
+    "current": {
+      "requested_version": "3.1.3",
+      "version": "3.1.3",
+      "jar": "/home/runner/.m2/repository/com/equinor/neqsim/neqsim/3.1.3/neqsim-3.1.3.jar",
+      "source": "embedded Maven pom.properties"
+    }
+  },
+  "matched_cases": 0,
+  "faster_cases": 0,
+  "slower_cases": 0,
+  "gain_percent": null,
+  "errors": [
+    "baseline Maven build failed (exit 1)",
+    "current Maven build failed (exit 1)",
+    "baseline-benchmarks.json: [Errno 2] No such file or directory: '/home/runner/work/_temp/baseline-benchmarks.json'",
+    "current-benchmarks.json: [Errno 2] No such file or directory: '/home/runner/work/_temp/current-benchmarks.json'"
+  ]
+}
