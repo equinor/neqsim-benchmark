@@ -114,20 +114,45 @@ systems or uses dense/sparse matrices, so they can be used to compare linear alg
 
 | Benchmark class | What it measures | Matrix-dependent code |
 | --- | --- | --- |
-| [FlashBenchmark](src/main/java/com/equinor/neqsim/benchmark/flash/FlashBenchmark.java) | TP flashes (SRK, PR, CPA, multiphase, reactive electrolyte), standard PH/PS flashes | Stability analysis and chemical equilibrium |
-| [PhaseEnvelopeBenchmark](src/main/java/com/equinor/neqsim/benchmark/thermo/PhaseEnvelopeBenchmark.java) | PT phase envelopes, saturation points, CPA hydrate temperature | Newton steps in envelope tracing |
+| [FlashBenchmark](src/main/java/com/equinor/neqsim/benchmark/flash/FlashBenchmark.java) | Single/two-phase TP flashes with SRK and PR, standard PH/PS flashes | Stability analysis and flash solving |
+| [PhaseEnvelopeBenchmark](src/main/java/com/equinor/neqsim/benchmark/thermo/PhaseEnvelopeBenchmark.java) | PT phase envelopes and saturation points | Newton steps in envelope tracing |
 | [InterfacialTensionBenchmark](src/main/java/com/equinor/neqsim/benchmark/thermo/InterfacialTensionBenchmark.java) | Gas/oil surface tension with Simple Gradient Theory and Parachor | Simple gradient theory and non-matrix baseline |
 | [LinearAlgebraKernelBenchmark](src/main/java/com/equinor/neqsim/benchmark/numerics/LinearAlgebraKernelBenchmark.java) | Levenberg-Marquardt parameter fitting | Jacobian/normal equation solves |
 | [PipeFlowSolverBenchmark](src/main/java/com/equinor/neqsim/benchmark/fluidmechanics/PipeFlowSolverBenchmark.java) | Single-phase gas pipeline and two-phase non-equilibrium pipe flow | Sparse/banded staggered-grid solvers and film mass transfer models |
-| [ReactorAndNetworkBenchmark](src/main/java/com/equinor/neqsim/benchmark/process/ReactorAndNetworkBenchmark.java) | Gibbs reactor (water-gas shift) | Gibbs minimisation Newton steps |
 
-The suite targets NeqSim 3.1.0. Data reconciliation and looped-network cases were
+The common suite targets NeqSim 3.1.0 through 3.5.0. Data reconciliation and looped-network cases were
 removed because their APIs are absent from that release. Fixed-temperature
 distillation and platform cases were removed because their required reboiler
 outlet-temperature specification is unavailable. Critical-point-dependent cases
 and Full Gradient Theory were removed after runtime failures on 3.1.0. The PH/PS
 case uses the standard PH solver instead of the slow legacy direct-Newton path.
-The original TP flash, compressor, and TEG process benchmarks remain available.
+Intermediate releases contain NeqSim calls to EJML signatures incompatible with
+their bundled EJML classes. The common suite therefore excludes CPA/electrolyte,
+CPA hydrate, Gibbs reactor, TEG, and explicit multiphase TP cases, including the
+original TP flash classes. These cases are removed consistently for every release,
+not silently skipped by version. NeqSim JARs and EJML dependencies are not modified.
+The original compressor benchmark remains available.
+
+### Verified compatibility
+On 2026-10-20, all 12 published standard releases below passed `mvn clean verify`
+and a short JMH execution check of the same 15 parameter cases across 14 methods
+with Java 21. The check used one fork, no warmup, and one 100 ms measurement;
+it verifies execution, not statistically meaningful performance differences.
+
+| NeqSim release | Build and smoke tests | All 15 JMH cases |
+| --- | --- | --- |
+| 3.1.0 | passed | passed |
+| v3.1.1 | passed | passed |
+| 3.1.2 | passed | passed |
+| 3.1.3 | passed | passed |
+| 3.1.4 | passed | passed |
+| 3.1.5 | passed | passed |
+| 3.2.0 | passed | passed |
+| 3.2.1 | passed | passed |
+| 3.2.2 | passed | passed |
+| 3.3.0 | passed | passed |
+| 3.4.0 | passed | passed |
+| 3.5.0 | passed | passed |
 
 Run a subset with a regular expression, for example:
 ```
@@ -151,9 +176,9 @@ java -jar target/benchmarks.jar -rf text -rff neqsim-la-snapshot.txt
 
 ## Smoke tests
 `mvn verify` runs JUnit smoke tests in [src/test](src/test/java/com/equinor/neqsim/benchmark).
-They call the retained flash, phase-envelope, surface-tension, regression, pipe-flow,
-and reactor cases and check finite outputs. Surface tensions must also be positive.
-The original TP flash, compressor, and TEG classes are exercised through JMH.
+They call the retained flash, phase-envelope, surface-tension, regression, and pipe-flow
+cases and check finite outputs. Surface tensions must also be positive.
+The original compressor class is exercised through JMH.
 
 ## Add benchmark methods
 Add methods under folder [benchmark](src/main/java/com/equinor/neqsim/benchmark). Remember to use decorator @Benchmark.

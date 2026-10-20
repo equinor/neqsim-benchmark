@@ -20,8 +20,7 @@ import org.openjdk.jmh.annotations.Warmup;
  * Phase envelope and saturation benchmarks.
  *
  * <p>The phase envelope tracer solves Jacobian systems through {@code SysNewtonRhapson}, so it is
- * sensitive to the linear algebra backend. Saturation and hydrate calculations wrap many nested TP
- * flashes.
+ * sensitive to the linear algebra backend. Saturation calculations wrap many nested TP flashes.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -33,14 +32,11 @@ public class PhaseEnvelopeBenchmark {
 
   SystemInterface gasCondensate;
   SystemInterface wellFluid;
-  SystemInterface hydrateFluid;
 
   @Setup(Level.Trial)
   public void setup() {
     gasCondensate = BenchmarkFluids.gasCondensate();
     wellFluid = BenchmarkFluids.wellFluid(false);
-    hydrateFluid = BenchmarkFluids.cpaGasWaterMeg();
-    hydrateFluid.setHydrateCheck(true);
   }
 
   /** Full PT phase envelope of a gas condensate with pseudo-components. */
@@ -78,21 +74,6 @@ public class PhaseEnvelopeBenchmark {
       sys.setPressure(50.0, "bara");
       ops.bubblePointPressureFlash(false);
       checksum += sys.getPressure();
-    }
-    return checksum;
-  }
-
-  /** Hydrate equilibrium temperature with CPA (water + MEG inhibited gas). */
-  @Benchmark
-  public double hydrateFormationTemperatureCpa() throws Exception {
-    SystemInterface sys = hydrateFluid.clone();
-    ThermodynamicOperations ops = new ThermodynamicOperations(sys);
-    double checksum = 0.0;
-    for (double p : new double[] {50.0, 100.0}) {
-      sys.setPressure(p, "bara");
-      sys.setTemperature(10.0, "C");
-      ops.hydrateFormationTemperature();
-      checksum += sys.getTemperature();
     }
     return checksum;
   }

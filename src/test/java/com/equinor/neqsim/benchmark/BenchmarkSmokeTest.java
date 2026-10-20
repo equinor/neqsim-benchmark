@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.equinor.neqsim.benchmark.flash.FlashBenchmark;
 import com.equinor.neqsim.benchmark.fluidmechanics.PipeFlowSolverBenchmark;
 import com.equinor.neqsim.benchmark.numerics.LinearAlgebraKernelBenchmark;
-import com.equinor.neqsim.benchmark.process.ReactorAndNetworkBenchmark;
 import com.equinor.neqsim.benchmark.thermo.InterfacialTensionBenchmark;
 import com.equinor.neqsim.benchmark.thermo.PhaseEnvelopeBenchmark;
 import java.util.concurrent.Callable;
@@ -34,9 +33,6 @@ class BenchmarkSmokeTest {
     check("tpFlashWellFluidSrk", b::tpFlashWellFluidSrk);
     check("tpFlashWellFluidPr", b::tpFlashWellFluidPr);
     check("tpFlashWellFluidWithProperties", b::tpFlashWellFluidWithProperties);
-    check("tpMultiPhaseFlashGasOilWater", b::tpMultiPhaseFlashGasOilWater);
-    check("tpFlashCpaGasWaterMeg", b::tpFlashCpaGasWaterMeg);
-    check("tpFlashReactiveElectrolyte", b::tpFlashReactiveElectrolyte);
     check("phAndPsFlashWellFluid", b::phAndPsFlashWellFluid);
   }
 
@@ -47,7 +43,6 @@ class BenchmarkSmokeTest {
     check("ptPhaseEnvelopeGasCondensate", b::ptPhaseEnvelopeGasCondensate);
     check("ptPhaseEnvelopeWellFluid", b::ptPhaseEnvelopeWellFluid);
     check("saturationPointsWellFluid", b::saturationPointsWellFluid);
-    check("hydrateFormationTemperatureCpa", b::hydrateFormationTemperatureCpa);
   }
 
   @Test
@@ -73,11 +68,5 @@ class BenchmarkSmokeTest {
     PipeFlowSolverBenchmark b = new PipeFlowSolverBenchmark();
     check("singlePhaseGasPipelineSteadyState", b::singlePhaseGasPipelineSteadyState);
     check("twoPhaseNonEquilibriumPipeSteadyState", b::twoPhaseNonEquilibriumPipeSteadyState);
-  }
-
-  @Test
-  void reactorAndNetworkBenchmarks() throws Exception {
-    ReactorAndNetworkBenchmark b = new ReactorAndNetworkBenchmark();
-    check("gibbsReactorWaterGasShift", b::gibbsReactorWaterGasShift);
   }
 }
