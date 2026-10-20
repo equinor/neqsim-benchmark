@@ -1,6 +1,9 @@
 package com.equinor.neqsim.benchmark.flash;
 
+import com.equinor.neqsim.benchmark.util.BenchmarkFluids;
 import java.util.concurrent.TimeUnit;
+import neqsim.thermo.system.SystemInterface;
+import neqsim.thermodynamicoperations.ThermodynamicOperations;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -12,30 +15,23 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import com.equinor.neqsim.benchmark.util.BenchmarkFluids;
-import neqsim.thermo.system.SystemInterface;
-import neqsim.thermodynamicoperations.ThermodynamicOperations;
 
 /**
  * Flash benchmarks covering the solvers that depend on the linear algebra backend.
  *
- * <p>
- * Each benchmark sweeps a temperature/pressure grid so that one invocation visits single-phase,
+ * <p>Each benchmark sweeps a temperature/pressure grid so that one invocation visits single-phase,
  * two-phase and (where relevant) three-phase states. Covered code paths:
- * </p>
+ *
  * <ul>
- * <li>TPflash successive substitution and Rachford-Rice (lean gas, 20-component SRK/PR)</li>
- * <li>Second-order Newton TP flash ({@code SysNewtonRhapsonTPflash}) near the critical point</li>
- * <li>Stability analysis and {@code TPmultiflash} for gas/oil/water</li>
- * <li>CPA association site solver with water and MEG</li>
- * <li>Electrolyte CPA with chemical equilibrium ({@code ChemicalEquilibrium})</li>
- * <li>Newton PH flash ({@code SysNewtonRhapsonPHflash}) and PS flash</li>
+ *   <li>TPflash successive substitution and Rachford-Rice (lean gas, 20-component SRK/PR)
+ *   <li>Stability analysis and {@code TPmultiflash} for gas/oil/water
+ *   <li>CPA association site solver with water and MEG
+ *   <li>Electrolyte CPA with chemical equilibrium ({@code ChemicalEquilibrium})
+ *   <li>PH flash and PS flash
  * </ul>
  *
- * <p>
- * Inspired by the {@code @Tag("benchmark")} tests {@code TPFlashBenchmarkTest},
- * {@code StabilityAnalysisBenchmarkTest} and {@code NewtonSolverAnalysisTest} in NeqSim.
- * </p>
+ * <p>Inspired by the {@code @Tag("benchmark")} tests {@code TPFlashBenchmarkTest}, {@code
+ * StabilityAnalysisBenchmarkTest} and {@code NewtonSolverAnalysisTest} in NeqSim.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -54,11 +50,7 @@ public class FlashBenchmark {
   SystemInterface gasOilWater;
   SystemInterface cpaGasWaterMeg;
   SystemInterface reactiveCO2Water;
-  SystemInterface nearCritical;
   SystemInterface enthalpyFluid;
-
-  double nearCriticalTemperatureK;
-  double nearCriticalPressureBara;
 
   @Setup(Level.Trial)
   public void setup() {
@@ -69,23 +61,6 @@ public class FlashBenchmark {
     cpaGasWaterMeg = BenchmarkFluids.cpaGasWaterMeg();
     reactiveCO2Water = BenchmarkFluids.reactiveCO2Water();
     enthalpyFluid = BenchmarkFluids.wellFluid(false);
-
-    // Locate the mixture critical point so the near-critical sweep stays where successive
-    // substitution stalls and the TP flash hands over to the Newton solver.
-    SystemInterface critical = BenchmarkFluids.gasCondensate();
-    critical.init(0);
-    new ThermodynamicOperations(critical).criticalPointFlash();
-    nearCriticalTemperatureK = critical.getTemperature();
-    nearCriticalPressureBara = critical.getPressure();
-    nearCritical = BenchmarkFluids.gasCondensate();
-  }
-
-  public double nearCriticalTemperatureK() {
-    return nearCriticalTemperatureK;
-  }
-
-  public double nearCriticalPressureBara() {
-    return nearCriticalPressureBara;
   }
 
   static double sweepTP(SystemInterface system) {
@@ -159,23 +134,7 @@ public class FlashBenchmark {
     return checksum;
   }
 
-  /** TP flashes in the two-phase region close to the mixture critical point. */
-  @Benchmark
-  public double tpFlashNearCritical() {
-    ThermodynamicOperations ops = new ThermodynamicOperations(nearCritical);
-    double checksum = 0.0;
-    for (double dT : new double[] {-8.0, -5.0, -3.0, -1.5}) {
-      for (double pFactor : new double[] {0.90, 0.95, 0.98}) {
-        nearCritical.setTemperature(nearCriticalTemperatureK + dT);
-        nearCritical.setPressure(nearCriticalPressureBara * pFactor);
-        ops.TPflash();
-        checksum += nearCritical.getBeta() + nearCritical.getNumberOfPhases();
-      }
-    }
-    return checksum;
-  }
-
-  /** Direct Newton PH flash (type 1) followed by a PS flash, starting from a TP flash. */
+  /** PH flash followed by a PS flash, starting from a TP flash. */
   @Benchmark
   public double phAndPsFlashWellFluid() {
     ThermodynamicOperations ops = new ThermodynamicOperations(enthalpyFluid);
@@ -189,7 +148,7 @@ public class FlashBenchmark {
       double entropy = enthalpyFluid.getEntropy();
 
       enthalpyFluid.setPressure(p * 0.5, "bara");
-      ops.PHflash(enthalpy, 1);
+      ops.PHflash(enthalpy);
       checksum += enthalpyFluid.getTemperature();
 
       enthalpyFluid.setPressure(p, "bara");

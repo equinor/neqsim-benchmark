@@ -1,6 +1,9 @@
 package com.equinor.neqsim.benchmark.thermo;
 
+import com.equinor.neqsim.benchmark.util.BenchmarkFluids;
 import java.util.concurrent.TimeUnit;
+import neqsim.thermo.system.SystemInterface;
+import neqsim.thermodynamicoperations.ThermodynamicOperations;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -12,18 +15,13 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import com.equinor.neqsim.benchmark.util.BenchmarkFluids;
-import neqsim.thermo.system.SystemInterface;
-import neqsim.thermodynamicoperations.ThermodynamicOperations;
 
 /**
- * Phase envelope, critical point and saturation benchmarks.
+ * Phase envelope and saturation benchmarks.
  *
- * <p>
- * The phase envelope tracer and the critical point flash solve Jacobian systems through
- * {@code SysNewtonRhapson} / {@code CriticalPointFlash}, so they are sensitive to the linear
- * algebra backend. Saturation and hydrate calculations wrap many nested TP flashes.
- * </p>
+ * <p>The phase envelope tracer solves Jacobian systems through {@code SysNewtonRhapson}, so it is
+ * sensitive to the linear algebra backend. Saturation and hydrate calculations wrap many nested TP
+ * flashes.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -35,14 +33,12 @@ public class PhaseEnvelopeBenchmark {
 
   SystemInterface gasCondensate;
   SystemInterface wellFluid;
-  SystemInterface binary;
   SystemInterface hydrateFluid;
 
   @Setup(Level.Trial)
   public void setup() {
     gasCondensate = BenchmarkFluids.gasCondensate();
     wellFluid = BenchmarkFluids.wellFluid(false);
-    binary = BenchmarkFluids.methanePropane();
     hydrateFluid = BenchmarkFluids.cpaGasWaterMeg();
     hydrateFluid.setHydrateCheck(true);
   }
@@ -63,22 +59,6 @@ public class PhaseEnvelopeBenchmark {
     ThermodynamicOperations ops = new ThermodynamicOperations(sys);
     ops.calcPTphaseEnvelope();
     return ops.get("cricondenbar")[1] + ops.get("cricondentherm")[0];
-  }
-
-  @Benchmark
-  public double criticalPointFlashBinary() {
-    SystemInterface sys = binary.clone();
-    sys.init(0);
-    new ThermodynamicOperations(sys).criticalPointFlash();
-    return sys.getTemperature() + sys.getPressure();
-  }
-
-  @Benchmark
-  public double criticalPointFlashGasCondensate() {
-    SystemInterface sys = gasCondensate.clone();
-    sys.init(0);
-    new ThermodynamicOperations(sys).criticalPointFlash();
-    return sys.getTemperature() + sys.getPressure();
   }
 
   /** Dew point temperatures and bubble point pressures for the well fluid. */
