@@ -1,9 +1,5 @@
 package com.equinor.neqsim.benchmark.process;
 
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Measurement;
-import org.openjdk.jmh.annotations.Warmup;
 import neqsim.process.equipment.absorber.SimpleTEGAbsorber;
 import neqsim.process.equipment.absorber.WaterStripperColumn;
 import neqsim.process.equipment.distillation.DistillationColumn;
@@ -22,6 +18,11 @@ import neqsim.process.equipment.valve.ThrottlingValve;
 import neqsim.process.measurementdevice.HydrateEquilibriumTemperatureAnalyser;
 import neqsim.process.measurementdevice.WaterDewPointAnalyser;
 import neqsim.process.processmodel.ProcessSystem;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Warmup;
+
 /**
  * <p>
  * TEGprocess_benchmark class.
@@ -160,7 +161,7 @@ public class TEGprocess {
         new double[] {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0});
 
     double addedWaterRate = 0.0;
-    Stream waterFeed = new Stream("lean TEG to absorber", feedWater);
+    Stream waterFeed = new Stream("water to glycol flash separator", feedWater);
     waterFeed.setFlowRate(addedWaterRate, "kg/hr");
     waterFeed.setTemperature(90.0, "C");
     waterFeed.setPressure(7.0, "bara");
@@ -271,7 +272,7 @@ public class TEGprocess {
 
     condHeat.setEnergyStream(column.getCondenser().getEnergyStream());
 
-    Stream leanTEGtoabs = new Stream("lean TEG to absorber", coolerhOTteg3.getOutletStream());
+    Stream leanTEGtoabs = new Stream("regenerated lean TEG", coolerhOTteg3.getOutletStream());
 
     Recycle resycleLeanTEG = new Recycle("lean TEG resycle");
     resycleLeanTEG.addStream(leanTEGtoabs);
