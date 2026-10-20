@@ -19,14 +19,11 @@ import org.openjdk.jmh.annotations.Warmup;
 /**
  * Flash benchmarks covering the solvers that depend on the linear algebra backend.
  *
- * <p>Each benchmark sweeps a temperature/pressure grid so that one invocation visits single-phase,
- * two-phase and (where relevant) three-phase states. Covered code paths:
+ * <p>Each benchmark sweeps a temperature/pressure grid so that one invocation visits single-phase
+ * and two-phase states. Covered code paths:
  *
  * <ul>
  *   <li>TPflash successive substitution and Rachford-Rice (lean gas, 20-component SRK/PR)
- *   <li>Stability analysis and {@code TPmultiflash} for gas/oil/water
- *   <li>CPA association site solver with water and MEG
- *   <li>Electrolyte CPA with chemical equilibrium ({@code ChemicalEquilibrium})
  *   <li>PH flash and PS flash
  * </ul>
  *
@@ -47,9 +44,6 @@ public class FlashBenchmark {
   SystemInterface leanGas;
   SystemInterface wellFluidSrk;
   SystemInterface wellFluidPr;
-  SystemInterface gasOilWater;
-  SystemInterface cpaGasWaterMeg;
-  SystemInterface reactiveCO2Water;
   SystemInterface enthalpyFluid;
 
   @Setup(Level.Trial)
@@ -57,9 +51,6 @@ public class FlashBenchmark {
     leanGas = BenchmarkFluids.leanGas();
     wellFluidSrk = BenchmarkFluids.wellFluid(false);
     wellFluidPr = BenchmarkFluids.wellFluid(true);
-    gasOilWater = BenchmarkFluids.gasOilWater();
-    cpaGasWaterMeg = BenchmarkFluids.cpaGasWaterMeg();
-    reactiveCO2Water = BenchmarkFluids.reactiveCO2Water();
     enthalpyFluid = BenchmarkFluids.wellFluid(false);
   }
 
@@ -104,31 +95,6 @@ public class FlashBenchmark {
         ops.TPflash();
         wellFluidSrk.initProperties();
         checksum += wellFluidSrk.getDensity("kg/m3") + wellFluidSrk.getCp("J/molK");
-      }
-    }
-    return checksum;
-  }
-
-  @Benchmark
-  public double tpMultiPhaseFlashGasOilWater() {
-    return sweepTP(gasOilWater);
-  }
-
-  @Benchmark
-  public double tpFlashCpaGasWaterMeg() {
-    return sweepTP(cpaGasWaterMeg);
-  }
-
-  @Benchmark
-  public double tpFlashReactiveElectrolyte() {
-    ThermodynamicOperations ops = new ThermodynamicOperations(reactiveCO2Water);
-    double checksum = 0.0;
-    for (double t : new double[] {25.0, 50.0}) {
-      for (double p : new double[] {1.01325, 10.0}) {
-        reactiveCO2Water.setTemperature(t, "C");
-        reactiveCO2Water.setPressure(p, "bara");
-        ops.TPflash();
-        checksum += reactiveCO2Water.getBeta() + reactiveCO2Water.getNumberOfPhases();
       }
     }
     return checksum;
