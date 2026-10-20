@@ -84,6 +84,9 @@ Maven build failures are fail-tolerant: both versions are attempted, each failed
 variant skips JMH, and the failure is saved in the per-run results. Dependency
 update failures also appear in the release history's **Maven Builds** column. This does not relax the release
 requirement for a complete verified comparison.
+Transient Maven artifact-transfer failures, such as connection resets and
+timeouts, are retried up to three times with fresh resolution (`-U`). Compilation
+and test failures are not retried; failed attempts remain in the build transcript.
 The reported NeqSim version comes from the resolved dependency JAR's embedded
 Maven metadata, captured before compilation. Failed builds therefore retain
 their JAR version. If a JAR cannot be resolved, its requested version is labelled

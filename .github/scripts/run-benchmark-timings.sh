@@ -21,6 +21,26 @@ cp -R src "$project_dir/"
   fi
 } > "$RUNNER_TEMP/benchmark-environment.txt" 2>&1
 
+is_retryable_maven_failure() {
+  grep -Eqi 'Could not transfer (artifact|metadata).*(Connection reset|[Tt]imed out|[Tt]imeout|[Tt]emporary failure in name resolution|502|503|504)' "$1"
+}
+
+run_maven() {
+  local attempt exit_code
+  local attempt_log="$RUNNER_TEMP/maven-transfer-attempt.log"
+  for attempt in 1 2 3; do
+    if mvn --batch-mode --no-transfer-progress -U "$@" 2>&1 | tee "$attempt_log"; then
+      return 0
+    else
+      exit_code="${PIPESTATUS[0]}"
+    fi
+    if [[ "$attempt" -eq 3 ]] || ! is_retryable_maven_failure "$attempt_log"; then
+      return "$exit_code"
+    fi
+    printf 'Transient Maven transfer failure; retrying (attempt %s of 3).\n' "$((attempt + 1))"
+  done
+}
+
 build_failures=0
 {
   printf '## Maven Build Results\n\n'
@@ -38,12 +58,12 @@ for variant in baseline current; do
   fi
   if (
     if [[ -z "$version_property" ]]; then
-      mvn --batch-mode --no-transfer-progress -f "$project_dir/pom.xml" \
+      run_maven -f "$project_dir/pom.xml" \
         org.codehaus.mojo:versions-maven-plugin:2.18.0:use-dep-version \
         -Dincludes=com.equinor.neqsim:neqsim -DdepVersion="$version" \
         -DforceVersion=true -DgenerateBackupPoms=false || exit "$?"
     fi
-    mvn --batch-mode --no-transfer-progress -f "$project_dir/pom.xml" \
+    run_maven -f "$project_dir/pom.xml" \
       org.apache.maven.plugins:maven-dependency-plugin:3.8.1:build-classpath \
       "-D${version_property:-neqsim.version}=$version" \
       -DincludeGroupIds=com.equinor.neqsim -DincludeArtifactIds=neqsim \
@@ -52,7 +72,7 @@ for variant in baseline current; do
     python3 "$script_dir/neqsim-jar-version.py" "$RUNNER_TEMP/$variant-classpath.txt" \
       "$version" "$RUNNER_TEMP/$variant-artifact.json" || exit "$?"
     printf '$ mvn clean verify -D%s=%s\n' "${version_property:-neqsim.version}" "$version"
-    mvn --batch-mode --no-transfer-progress -f "$project_dir/pom.xml" clean verify \
+    run_maven -f "$project_dir/pom.xml" clean verify \
       "-D${version_property:-neqsim.version}=$version"
   ) 2>&1 | tee "$RUNNER_TEMP/$variant-build.log"; then
     printf '0\n' > "$RUNNER_TEMP/$variant-build-exit-code.txt"
