@@ -1,6 +1,8 @@
 name: Check NeqSim Updates
 
 on:
+  repository_dispatch:
+    types: [neqsim-release]
   schedule:
     - cron: "23 6 * * 1"
   workflow_dispatch:
