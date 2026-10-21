@@ -40,6 +40,12 @@ they do not block the update PR or produce an overall gain.
 Enable **Allow GitHub Actions to create and approve pull requests** under
 **Settings > Actions > General > Workflow permissions** for PR creation.
 The workflow uses the built-in `GITHUB_TOKEN`; no additional secret is required.
+Before publishing the update PR, it checks that the default branch still points
+to the commit used for measurement. If the branch advanced during benchmarking,
+the run fails with a request to rerun against the latest sources. It does not
+rebase measured results or push an outdated workflow snapshot. This also avoids
+the stale-base workflow-permission rejection when workflow files changed while
+the benchmarks were running.
 
 ## Automatic releases
 The [Release NeqSim Update workflow](.github/workflows/release-neqsim-update.yml)
