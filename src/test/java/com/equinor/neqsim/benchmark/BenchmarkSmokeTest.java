@@ -47,7 +47,7 @@ class BenchmarkSmokeTest {
 
   @Test
   void interfacialTensionBenchmarks() throws Exception {
-    for (String model : new String[] {"Simple Gradient Theory", "Parachor"}) {
+    for (String model : new String[] {"Full Gradient Theory", "Simple Gradient Theory", "Parachor"}) {
       InterfacialTensionBenchmark b = new InterfacialTensionBenchmark();
       b.model = model;
       b.setup();
