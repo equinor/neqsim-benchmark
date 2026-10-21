@@ -4,6 +4,7 @@ import math
 import os
 import re
 import shutil
+import subprocess
 from pathlib import Path
 
 
@@ -46,6 +47,24 @@ def load_benchmark_revision(directory):
             or revision.get("label") != f"B{revision['number']}-{revision['fingerprint'][:12]}"):
         raise ValueError("Invalid benchmark suite revision metadata")
     return revision
+
+
+def benchmark_updated_at(revision):
+    updated_at = revision.get("updated_at")
+    if updated_at:
+        return updated_at
+    if revision.get("uncommitted_changes"):
+        return "uncommitted"
+    source_commit = revision.get("source_commit")
+    if not source_commit:
+        return "not recorded"
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%cs", source_commit, "--",
+         "src/main/java", "src/main/resources", ".github/scripts/run-benchmark-timings.sh"],
+        capture_output=True, text=True, check=False)
+    if result.returncode == 0 and result.stdout.strip():
+        return result.stdout.strip()
+    return "not recorded"
 
 
 def summarize(baseline, current, baseline_version, current_version, expected, limit=10,
@@ -265,13 +284,15 @@ def update_history(root):
         "geometric-mean time reduction across matched benchmark/parameter cases.",
         "Incomplete runs have no overall gain. Hosted-runner timings are indicative;",
         "compare matching benchmark sets and inspect confidence intervals in comparison.md.",
+        "Release-to-release timing trends are directly comparable only while the benchmark suite revision stays the same.",
         "Versions come from embedded dependency JAR metadata when available; (requested) means the JAR could not be inspected.",
         "",
         "Benchmark suite revisions identify source and measurement-runner changes; do not attribute cross-revision timing changes to NeqSim alone.",
         "",
-        "| Release | Baseline | Benchmark Revision | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |",
-        "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |",
+        "| Benchmark Updated | Release | Baseline | Benchmark Revision | Suite vs previous | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |",
+        "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |",
     ]
+    previous_revision = None
     for path, record in reversed(release_records):
         gain = f"{record['gain_percent']:+.2f}%" if record["gain_percent"] is not None else "n/a"
         report_path = path.with_name("comparison.md")
@@ -284,6 +305,16 @@ def update_history(root):
         build_text = "; ".join(builds) or "not recorded"
         revision = record.get("benchmark_revision") or {}
         suite_label = revision.get("label", "not recorded")
+        suite_updated_at = benchmark_updated_at(revision)
+        if suite_label == "not recorded" or previous_revision == "not recorded":
+            suite_continuity = "not recorded"
+        elif previous_revision is None:
+            suite_continuity = "first recorded suite"
+        elif suite_label == previous_revision:
+            suite_continuity = "same suite"
+        else:
+            suite_continuity = "changed; not directly comparable"
+        previous_revision = suite_label
         current_label = record["current_version"]
         baseline_label = record["baseline_version"]
         if "artifact_versions" in record:
@@ -291,8 +322,8 @@ def update_history(root):
                 current_label += " (requested)"
             if "baseline" not in record["artifact_versions"]:
                 baseline_label += " (requested)"
-        lines.append(f"| {current_label} | {baseline_label} "
-                     f"| {suite_label} | {build_text} | {record['matched_cases']} "
+        lines.append(f"| {suite_updated_at} | {current_label} | {baseline_label} "
+                     f"| {suite_label} | {suite_continuity} | {build_text} | {record['matched_cases']} "
                      f"| {record['faster_cases']} / {record['slower_cases']} "
                      f"| {gain} | {record['status']} | [View results]({report}) |")
     (root / "summary.md").write_text("\n".join(lines) + "\n")

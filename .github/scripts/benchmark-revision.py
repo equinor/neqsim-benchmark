@@ -59,11 +59,14 @@ def capture_revision(repository, reference=None):
     else:
         previous = {}
     digest = fingerprint(files)
+    updated_at = (git(repository, "show", "-s", "--format=%cs", changes[-1]).decode().strip()
+                  if changes and not dirty else None)
     return {
         "number": number,
         "label": f"B{number}-{digest[:12]}",
         "fingerprint": digest,
         "source_commit": commit,
+        "updated_at": updated_at,
         "uncommitted_changes": dirty,
         "scopes": list(SCOPES),
         "files": dict(sorted(files.items())),
