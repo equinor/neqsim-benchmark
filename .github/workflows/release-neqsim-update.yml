@@ -50,6 +50,18 @@ jobs:
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
+          def committed_pom(commit):
+              entries = subprocess.check_output(
+                  ["git", "ls-tree", "-z", commit, "--", "pom.xml"]).split(b"\0")
+              entries = [entry for entry in entries if entry]
+              if len(entries) != 1:
+                  raise ValueError(f"Expected one root pom.xml in commit {commit}")
+              metadata, path = entries[0].split(b"\t", 1)
+              mode, kind, object_id = metadata.split()
+              if path != b"pom.xml" or kind != b"blob" or mode not in (b"100644", b"100755"):
+                  raise ValueError(f"Expected a regular root pom.xml in commit {commit}")
+              return subprocess.check_output(["git", "cat-file", "blob", object_id.decode("ascii")])
+
           def neqsim_version(pom):
               root = ET.fromstring(pom)
               namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
@@ -69,8 +81,8 @@ jobs:
           source_commit = os.environ["BENCHMARK_SOURCE_COMMIT"]
           if not source_commit or not all(character in "0123456789abcdef" for character in source_commit):
               raise ValueError("Invalid benchmark source commit")
-          current_pom = subprocess.check_output(["git", "show", f"{source_commit}:pom.xml"])
-          previous_pom = subprocess.check_output(["git", "show", f"{source_commit}^:pom.xml"])
+          current_pom = committed_pom(source_commit)
+          previous_pom = committed_pom(f"{source_commit}^")
           changed = neqsim_version(current_pom) != neqsim_version(previous_pom)
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"changed={str(changed).lower()}\n")
@@ -114,7 +126,7 @@ jobs:
               ["git", "log", "-1", "--format=%H", "--", str(record_path)], text=True).strip()
           if not target:
               raise ValueError("Benchmark results have not been committed")
-          pom = subprocess.check_output(["git", "show", f"{target}:pom.xml"])
+          pom = committed_pom(target)
           if pom != record_path.with_name("pom.xml").read_bytes():
               raise ValueError("The results commit POM differs from the benchmarked POM")
           version = neqsim_version(pom)
@@ -148,6 +160,7 @@ jobs:
           NEQSIM_VERSION: ${{ steps.neqsim.outputs.version }}
           RELEASE_TAG: ${{ steps.neqsim.outputs.tag }}
           RELEASE_COMMIT: ${{ steps.neqsim.outputs.commit }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists; leaving it unchanged." >> "$GITHUB_STEP_SUMMARY"
@@ -157,3 +170,5 @@ jobs:
             --target "$RELEASE_COMMIT" \
             --title "NeqSim $NEQSIM_VERSION benchmarks" \
             --notes "Updated benchmark project to NeqSim $NEQSIM_VERSION. Full benchmark timing comparison passed with Java 21. This release targets the commit containing both the benchmarked POM and committed benchmark-results tables, raw results, and transcripts. No JAR is attached."
+          gh workflow run check-neqsim-updates.yml --ref "$DEFAULT_BRANCH"
+          echo "Published $RELEASE_TAG and requested the next NeqSim update check." >> "$GITHUB_STEP_SUMMARY"

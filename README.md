@@ -63,9 +63,14 @@ workflow first; release creation follows its successful completion. Existing
 releases are left unchanged. The `workflow_run` completion trigger allows release
 verification to follow report commits made with `GITHUB_TOKEN`, which do not
 trigger push workflows.
-It uses the built-in `GITHUB_TOKEN` with repository contents write permission.
-Manually published releases trigger the update check directly; for automated releases,
-the weekly schedule or manual check continues to the next available NeqSim version.
+It uses the built-in `GITHUB_TOKEN` with repository contents and actions write
+permissions. After creating a new release, it explicitly dispatches
+**Check NeqSim Updates** on the default branch to look for the next available
+version. This is necessary because releases created with `GITHUB_TOKEN` do not
+trigger release-event workflows. Existing releases do not dispatch another check,
+and publication or dispatch failures fail the workflow. Manually published
+releases still trigger the update check directly; the weekly schedule and manual
+check remain available.
 
 Every comparison records a suite revision. Matching revisions make it easier to
 separate NeqSim changes from changes to the measured cases. Version identity is
