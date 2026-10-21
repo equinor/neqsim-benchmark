@@ -22,9 +22,12 @@ and contents in `src/main/java`, `src/main/resources`, and the measurement runne
 Uncommitted changes use the next number and a distinct content hash.
 
 The archived `benchmark-revision.json` contains file hashes, the source commit,
-and added/modified/deleted file lists relative to the previous suite revision.
-These changes appear as a table in `comparison.md`; the history has a **Benchmark
-Revision** column. POM-only NeqSim updates and result files are excluded. Old
+the date of the latest committed benchmark-suite change, and added/modified/deleted
+file lists relative to the previous suite revision. These changes appear as a
+table in `comparison.md`; the history shows **Benchmark Updated** and
+**Benchmark Revision**. **Suite vs previous** flags where a suite update breaks
+the release-to-release timing trend: those rows are not directly comparable to
+the previous row. POM-only NeqSim updates and result files are excluded. Old
 reports show `not recorded`, not an inferred revision. A change in suite revision
 means historical timing changes cannot be attributed to NeqSim alone.
 

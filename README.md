@@ -44,6 +44,11 @@ The workflow uses the built-in `GITHUB_TOKEN`; no additional secret is required.
 ## Automatic releases
 The [Release NeqSim Update workflow](.github/workflows/release-neqsim-update.yml)
 runs after a successful **Compare Benchmark Timings** run on the default branch.
+Release processing continues only when that benchmark run's source commit changes
+the resolved NeqSim dependency version in `pom.xml` relative to its first parent.
+Benchmark-only changes, result commits, and unrelated POM changes skip release
+processing. Manual requests apply the same version-change check to the selected
+default-branch commit before starting benchmarks.
 Merging an update PR starts only **Compare Benchmark Timings**; release verification
 waits for that run to finish successfully and uses its committed results.
 A GitHub release tagged `neqsim-<version>` targets the commit containing both the
