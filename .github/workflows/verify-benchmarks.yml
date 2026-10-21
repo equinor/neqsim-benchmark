@@ -1,0 +1,77 @@
+name: Verify Benchmark Compatibility
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  current-jar:
+    name: Benchmarks on current NeqSim JAR
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out proposed merged sources
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build and test against the declared NeqSim dependency
+        run: |
+          mvn --batch-mode --no-transfer-progress clean verify \
+            -DargLine=-Xmx1g -Dsurefire.forkedProcessTimeoutInSeconds=1200
+
+      - name: Discover all benchmark methods
+        run: |
+          java -jar target/benchmarks.jar -l | tee "$RUNNER_TEMP/benchmark-list.txt"
+
+      - name: Exercise every benchmark and parameter combination
+        run: |
+          java -jar target/benchmarks.jar \
+            -bm avgt -tu ms -t 1 -f 1 -wf 0 \
+            -wi 0 -i 1 -r 1ms -to 20m -foe true \
+            -jvmArgs '-Xmx1g' \
+            -rf json -rff "$RUNNER_TEMP/benchmark-smoke.json"
+
+      - name: Verify complete finite benchmark results
+        shell: python
+        run: |
+          import json
+          import math
+          import os
+          from pathlib import Path
+
+          temporary = Path(os.environ["RUNNER_TEMP"])
+          lines = (temporary / "benchmark-list.txt").read_text().splitlines()
+          if not lines or lines[0].strip() != "Benchmarks:":
+              raise ValueError("JMH did not produce the expected benchmark discovery list")
+          expected = {line.strip() for line in lines[1:] if line.strip()}
+          if not expected:
+              raise ValueError("No benchmark methods were discovered")
+          results = json.loads((temporary / "benchmark-smoke.json").read_text())
+          actual = {result["benchmark"] for result in results}
+          if actual != expected:
+              raise ValueError(
+                  f"Incomplete JMH execution: missing={sorted(expected - actual)}, "
+                  f"unexpected={sorted(actual - expected)}")
+          for result in results:
+              score = result["primaryMetric"]["score"]
+              if not math.isfinite(score) or score <= 0:
+                  raise ValueError(
+                      f"Invalid benchmark result for {result['benchmark']} "
+                      f"{result.get('params', {})}: {score}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(
+                  f"Verified {len(expected)} benchmark methods and {len(results)} "
+                  "benchmark/parameter cases against the NeqSim JAR declared in pom.xml.\n\n"
+                  "Full Maven verification and forked JMH execution passed. "
+                  "These are compatibility checks, not performance measurements.\n")
