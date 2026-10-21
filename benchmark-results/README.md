@@ -73,3 +73,12 @@ stages are labelled. Raw JMH JSON files are included when they were produced;
 Each run is preserved separately, including failures and retries. No benchmark
 measurements are invented or recorded until a workflow produces them. No JARs
 or GitHub Actions artifacts are stored here.
+
+## Compatibility investigations
+
+The [full TEG compatibility investigation](compatibility/teg-process.json)
+records the corrected historical workload's source hashes, resolved JAR
+identities, focused-test results, and reproduction commands. It is not a
+release timing comparison and does not add a row to the timing history.
+The safe TEG baseline is 3.2.1: the original 3.1.0 JAR passes, but published
+numeric versions 3.1.2 through 3.2.0 have an EJML linkage failure on this path.
