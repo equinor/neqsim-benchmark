@@ -134,6 +134,20 @@ mvn test -Dneqsim.version=3.2.1 -Dtest=LegacyFlashTest -DargLine=-Xmx1g
 
 Repeat with `-Dneqsim.version=3.2.2` to check the other side of the comparison.
 
+## Full Gradient Theory restoration
+
+The [interfacial tension benchmark](src/main/java/com/equinor/neqsim/benchmark/thermo/InterfacialTensionBenchmark.java)
+again includes all three original models: **Full Gradient Theory**, **Simple
+Gradient Theory**, and **Parachor**. The fluid, operating conditions, and
+initialization are unchanged. The smoke test checks finite, positive surface
+tension for each model.
+
+Full Gradient Theory requires **NeqSim 3.2.2** for this workload; it fails on
+3.2.1. It can be restored with the current 3.2.2 dependency, but the first
+compatible release comparison is **3.3.0 versus 3.2.2**, not 3.2.2 versus 3.2.1.
+This expansion changes the suite revision and must be measured on both sides
+of the comparison.
+
 ## Pull request compatibility check
 
 The [Verify Benchmark Compatibility workflow](.github/workflows/verify-benchmarks.yml)

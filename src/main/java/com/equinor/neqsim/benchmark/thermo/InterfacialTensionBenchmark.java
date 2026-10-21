@@ -18,8 +18,8 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
 /**
- * Interfacial tension by simple gradient theory. The gradient theory model uses {@code
- * GTSurfaceTensionSimple}; parachor is included as a non-matrix baseline.
+ * Interfacial tension by full and simple gradient theory. Full gradient theory solves a boundary
+ * value problem using matrix operations; parachor is included as a non-matrix baseline.
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -29,7 +29,7 @@ import org.openjdk.jmh.annotations.Warmup;
 @Fork(1)
 public class InterfacialTensionBenchmark {
 
-  @Param({"Simple Gradient Theory", "Parachor"})
+  @Param({"Full Gradient Theory", "Simple Gradient Theory", "Parachor"})
   public String model;
 
   SystemInterface system;
