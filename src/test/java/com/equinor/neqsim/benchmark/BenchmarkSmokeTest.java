@@ -61,6 +61,14 @@ class BenchmarkSmokeTest {
     LinearAlgebraKernelBenchmark b = new LinearAlgebraKernelBenchmark();
     check("levenbergMarquardtAntoine", b::levenbergMarquardtAntoine);
     check("levenbergMarquardtDoubleExponential", b::levenbergMarquardtDoubleExponential);
+    for (int nodes : new int[] {20, 100}) {
+      LinearAlgebraKernelBenchmark.ReconciliationSize size =
+          new LinearAlgebraKernelBenchmark.ReconciliationSize();
+      size.nodes = nodes;
+      double objective = check("dataReconciliation[" + nodes + "]",
+          () -> b.dataReconciliation(size));
+      assertTrue(objective >= 0.0, "Negative reconciliation objective");
+    }
   }
 
   @Test

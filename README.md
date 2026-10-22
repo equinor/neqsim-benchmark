@@ -83,10 +83,10 @@ separate NeqSim changes from changes to the measured cases. Version identity is
 read from the resolved dependency JAR when available; reports label a requested
 version separately if the JAR could not be inspected.
 
-The common compatibility suite passed build and smoke checks for 12 published
-releases from NeqSim 3.1.0 through 3.5.0 on Java 21. This is compatibility
-evidence, not a claim that the short checks provide statistically meaningful
-performance measurements.
+The common compatibility suite, before the restorations below, passed build and
+smoke checks for 12 published releases from NeqSim 3.1.0 through 3.5.0 on Java 21.
+This is compatibility evidence, not a claim that the short checks provide
+statistically meaningful performance measurements.
 
 ## Full TEG benchmark restoration
 
@@ -159,10 +159,70 @@ initialization are unchanged. The smoke test checks finite, positive surface
 tension for each model.
 
 Full Gradient Theory requires **NeqSim 3.2.2** for this workload; it fails on
-3.2.1. It can be restored with the current 3.2.2 dependency, but the first
+3.2.1. It can be restored starting with the 3.2.2 dependency, but the first
 compatible release comparison is **3.3.0 versus 3.2.2**, not 3.2.2 versus 3.2.1.
 This expansion changes the suite revision and must be measured on both sides
 of the comparison.
+
+## NeqSim 3.5.0 benchmark restoration
+
+The following full workloads are restored from suite commit `3a8c403`:
+
+- **Data reconciliation** in the
+  [numerical kernels](src/main/java/com/equinor/neqsim/benchmark/numerics/LinearAlgebraKernelBenchmark.java):
+  splitter chains with **20 and 100 mass-balance nodes** (41 and 201 measured
+  variables). Every invocation builds and reconciles the original perturbed
+  measurements. The [correctness test](src/test/java/com/equinor/neqsim/benchmark/numerics/DataReconciliationTest.java)
+  requires convergence, a finite positive objective, and every reconciled
+  balance residual within `1e-8`.
+- **Full oil and gas platform**:
+  [flowsheet](src/main/java/com/equinor/neqsim/benchmark/process/OilGasPlatformModel.java)
+  and [both benchmarks](src/main/java/com/equinor/neqsim/benchmark/process/LargeProcessModelBenchmark.java).
+  The original 16-component E300 fluid, eight process systems, parallel
+  separation/expander/compressor trains, NGL columns, recycles, export utilities,
+  and 40 km gas pipeline are retained. The measured methods retain the original
+  **five outer iterations** for build/run/JSON reporting and **three** after
+  alternating the HP well rate between 30.3 and 30.0 MSm3/day.
+
+Both workloads require **NeqSim 3.5.0**. The first compatible expanded release
+comparison is **3.6.0 versus 3.5.0**, not 3.5.0 versus 3.4.0. Restoring them
+changes the suite revision; no historical timing reports are rewritten.
+
+The full platform needs more than the JAR's default 50 outer iterations to
+converge on 3.5.0. Its unmeasured rerun setup and
+[correctness test](src/test/java/com/equinor/neqsim/benchmark/OilGasPlatformModelTest.java)
+allow up to **150 iterations**, without relaxing convergence tolerances. Setup
+fails explicitly if convergence is not reached. The test additionally checks
+gas rates, export pressures, and overall mass balance. This setup takes several
+minutes; the fixed-iteration measured methods are not full-convergence solves.
+NeqSim 3.5.0 logs intermediate pipeline pressure errors during cold startup;
+the final full-model convergence and conservation checks pass. This is execution
+compatibility evidence, not design-grade process validation.
+
+**Reactor and looped-network restoration remains deferred.** Compilation and a
+finite return value were insufficient in the earlier compatibility assessment.
+On 3.5.0 the original water-gas-shift reactor stops after two iterations with a
+NaN convergence error. The original 4-by-4 grid reaches its 500-iteration limit
+with a NaN residual and violates source mass balance. The JAR also maps its
+`NEWTON_RAPHSON` option to Hardy Cross rather than a Newton solver. These are
+not valid successful-solve timings, so neither method is enabled. A later JAR
+must pass actual convergence and conservation checks before restoration.
+The six-solver distillation and critical-point-dependent flash/envelope
+expansions also remain deferred (previous execution thresholds: 3.12.1 and
+3.13.0 respectively; correctness must be rechecked before restoration).
+
+To reproduce current-JAR verification, including the slow platform solve:
+
+```sh
+mvn clean verify -DargLine=-Xmx1g \
+  -Dsurefire.forkedProcessTimeoutInSeconds=1200
+```
+
+On Java 21 with NeqSim 3.5.0, full Maven verification passed **10 tests**; the
+platform converged in **109 outer iterations** at unchanged tolerances.
+The PR workflow's short forked JMH command also passed **all 20 methods and
+23 parameter cases**, including reconciliation 20/100 and both platform methods.
+These short checks establish execution compatibility, not performance significance.
 
 ## Pull request compatibility check
 
