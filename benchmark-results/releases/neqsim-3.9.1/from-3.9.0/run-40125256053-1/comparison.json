@@ -1,0 +1,82 @@
+{
+  "baseline_version": "3.9.0",
+  "current_version": "3.9.1",
+  "run_id": "40125256053",
+  "run_attempt": "1",
+  "source_commit": "b5fc82b0db80cb758fb2d8ef2742fe2875c14343",
+  "benchmark_revision": {
+    "number": 13,
+    "label": "B13-b048238496c5",
+    "fingerprint": "b048238496c557d6de94a734de7ddbbf0dec223af649ff65f992cfe1488dfd3c",
+    "source_commit": "b5fc82b0db80cb758fb2d8ef2742fe2875c14343",
+    "updated_at": "2026-10-22",
+    "uncommitted_changes": false,
+    "scopes": [
+      "src/main/java",
+      "src/main/resources",
+      ".github/scripts/run-benchmark-timings.sh"
+    ],
+    "files": {
+      ".github/scripts/run-benchmark-timings.sh": "7e6cd1f5a726e6750792500632eac90d1fc63391c2ba28ca9947d7bd14c8ec03",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/FlashBenchmark.java": "16e923506b507f652653ce4709a31c2ffd57aca63da4facbb1acb5a408df33c5",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/TPflash.java": "5dfd00a3bd4cb4b497da1d3b47f2303f351c3bc570b61b528765919b920031ab",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/TPflash_UMR.java": "925cc33c89f7dad0ec3ba4bf2567d283f80790fc465c963b45f4a8202536773e",
+      "src/main/java/com/equinor/neqsim/benchmark/fluidmechanics/PipeFlowSolverBenchmark.java": "76fdf4910236068de1c14af59b07a4fa1c33995047d29f1d320549dc36f08cab",
+      "src/main/java/com/equinor/neqsim/benchmark/numerics/LinearAlgebraKernelBenchmark.java": "c65dc1394ea88648f719e2eb2259a0c496fa188221d96ccb0fb7f039b2a06dc7",
+      "src/main/java/com/equinor/neqsim/benchmark/process/Compressor_Benchmark.java": "4c5fd06e5e1e1888b1fc7fe9accef39262ccf310f028c7741a1d43d54dcfdd50",
+      "src/main/java/com/equinor/neqsim/benchmark/process/LargeProcessModelBenchmark.java": "43aed65eaf92203243dfb1a06204f28466c06b7c6e1b93f532806f806f94ccd0",
+      "src/main/java/com/equinor/neqsim/benchmark/process/OilGasPlatformModel.java": "ca06f2817fda0161c6e416b61c50e3ffb65999830f1d693dad57384b66bf03a4",
+      "src/main/java/com/equinor/neqsim/benchmark/process/TEGprocess.java": "2e3be31a0adf16c5f7ae5c6854babfd8df641e2e9d241ef8467ff16e1de35602",
+      "src/main/java/com/equinor/neqsim/benchmark/thermo/InterfacialTensionBenchmark.java": "8774baa0bf170ed6646a4f67b67cb9d9259b8b765202417a6f16bd0892b3d669",
+      "src/main/java/com/equinor/neqsim/benchmark/thermo/PhaseEnvelopeBenchmark.java": "7abf7ec3acdca4a3c1599fa3ee33670b708855c207103f16dc8d3e6bb83ca78c",
+      "src/main/java/com/equinor/neqsim/benchmark/util/BenchmarkFluids.java": "87ea44ebc643643e5acffedeadb95d6bba553daaed4a026d076f38646c77fdb0",
+      "src/main/resources/fluids/platform_feed.e300": "32f4eb0253f888fa2c96a36fe76d26e085dda3308d5a80b11ce9899993aceb7b"
+    },
+    "changes": {
+      "added": [
+        "src/main/java/com/equinor/neqsim/benchmark/process/LargeProcessModelBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/process/OilGasPlatformModel.java"
+      ],
+      "modified": [
+        "src/main/java/com/equinor/neqsim/benchmark/numerics/LinearAlgebraKernelBenchmark.java"
+      ],
+      "deleted": []
+    }
+  },
+  "run_url": "https://github.com/equinor/neqsim-benchmark/actions/runs/40125256053",
+  "status": "complete",
+  "include_in_history": false,
+  "build_status": {
+    "baseline": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "current": {
+      "status": "passed",
+      "exit_code": 0
+    }
+  },
+  "requested_versions": {
+    "baseline": "3.9.0",
+    "current": "3.9.1"
+  },
+  "artifact_versions": {
+    "baseline": {
+      "requested_version": "3.9.0",
+      "version": "3.9.0",
+      "jar": "/home/runner/.m2/repository/com/equinor/neqsim/neqsim/3.9.0/neqsim-3.9.0.jar",
+      "source": "embedded Maven pom.properties"
+    },
+    "current": {
+      "requested_version": "3.9.1",
+      "version": "3.9.1",
+      "jar": "/home/runner/.m2/repository/com/equinor/neqsim/neqsim/3.9.1/neqsim-3.9.1.jar",
+      "source": "embedded Maven pom.properties"
+    }
+  },
+  "matched_cases": 23,
+  "faster_cases": 15,
+  "slower_cases": 8,
+  "gain_percent": 2.1949666768500298,
+  "errors": []
+}
