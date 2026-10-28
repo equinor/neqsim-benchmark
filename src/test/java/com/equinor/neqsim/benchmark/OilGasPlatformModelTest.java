@@ -7,6 +7,7 @@ import com.equinor.neqsim.benchmark.process.LargeProcessModelBenchmark;
 import com.equinor.neqsim.benchmark.process.OilGasPlatformModel;
 import com.equinor.neqsim.benchmark.util.BenchmarkFluids;
 import neqsim.process.equipment.compressor.Compressor;
+import neqsim.process.equipment.distillation.DistillationColumn;
 import neqsim.process.equipment.pipeline.PipeBeggsAndBrills;
 import neqsim.process.equipment.separator.ThreePhaseSeparator;
 import neqsim.process.equipment.stream.Stream;
@@ -21,11 +22,27 @@ class OilGasPlatformModelTest {
   void platformModelSolves() {
     long start = System.nanoTime();
     ProcessModel model = OilGasPlatformModel.build(BenchmarkFluids.platformWellFluid());
+    for (String area : new String[] {OilGasPlatformModel.EXPANDER_A, OilGasPlatformModel.EXPANDER_B}) {
+      DistillationColumn column = (DistillationColumn) model.get(area).getUnit("NGL column");
+      assertEquals(DistillationColumn.SolverType.DAMPED_SUBSTITUTION, column.getSolverType(),
+          area + " NGL solver must damp the coupled recycle");
+      assertEquals(1e-3, column.getTemperatureTolerance(), 0.0, area + " NGL temperature tolerance");
+      assertEquals(1e-6, column.getMassBalanceTolerance(), 0.0, area + " NGL mass tolerance");
+    }
     model.setMaxIterations(LargeProcessModelBenchmark.CONVERGENCE_ITERATIONS);
     model.run();
     System.out.printf("platform model cold run: %d ms%n", (System.nanoTime() - start) / 1_000_000);
     System.out.println(model.getConvergenceSummary());
-    assertTrue(model.isModelConverged(), "Full platform did not converge");
+    assertTrue(model.isModelConverged(), model.getConvergenceSummary());
+    for (String area : new String[] {OilGasPlatformModel.EXPANDER_A, OilGasPlatformModel.EXPANDER_B}) {
+      DistillationColumn column = (DistillationColumn) model.get(area).getUnit("NGL column");
+      assertTrue(column.solved(), area + ": NGL column did not solve");
+      double input = ((ThrottlingValve) model.get(area).getUnit("NGL column feed valve"))
+          .getOutletStream().getFlowRate("kg/hr");
+      double output = column.getGasOutStream().getFlowRate("kg/hr")
+          + column.getLiquidOutStream().getFlowRate("kg/hr");
+      assertEquals(input, output, 0.02 * input, area + " NGL mass balance");
+    }
 
     double feed = ((Stream) model.get(OilGasPlatformModel.WELLS).getUnit("HP well stream")).getFlowRate("kg/hr")
         + ((Stream) model.get(OilGasPlatformModel.WELLS).getUnit("LP well stream")).getFlowRate("kg/hr");

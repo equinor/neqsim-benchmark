@@ -384,8 +384,10 @@ public final class OilGasPlatformModel {
     process.add(nglFeedValve);
 
     DistillationColumn nglColumn = new DistillationColumn("NGL column", 5, true, false);
-    nglColumn.setTemperatureTolerance(2.5e-1);
-    nglColumn.setMassBalanceTolerance(1.0);
+    // Undamped substitution oscillates when the NGL products feed the upstream recycles.
+    nglColumn.setSolverType(DistillationColumn.SolverType.DAMPED_SUBSTITUTION);
+    nglColumn.setTemperatureTolerance(1e-3);
+    nglColumn.setMassBalanceTolerance(1e-6);
     nglColumn.setEnthalpyBalanceTolerance(1.0);
     nglColumn.addFeedStream(nglFeedValve.getOutletStream(), 5);
     nglColumn.getReboiler().setOutletTemperature(273.15 + inp.nglColumnBottomTemperature);
