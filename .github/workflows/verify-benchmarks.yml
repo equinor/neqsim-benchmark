@@ -1,7 +1,11 @@
-name: Verify Benchmark Compatibility
+name: Verify Benchmark Compatibility (No Results Archived)
 
 on:
   pull_request:
+    paths:
+      - 'src/main/java/com/equinor/neqsim/benchmark/**'
+      - 'src/main/resources/fluids/**'
+      - 'src/test/java/com/equinor/neqsim/benchmark/**'
   workflow_dispatch:
 
 permissions:
@@ -9,7 +13,7 @@ permissions:
 
 jobs:
   current-jar:
-    name: Benchmarks on current NeqSim JAR
+    name: Compatibility verification only
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -34,7 +38,7 @@ jobs:
         run: |
           java -jar target/benchmarks.jar -l | tee "$RUNNER_TEMP/benchmark-list.txt"
 
-      - name: Exercise every benchmark and parameter combination
+      - name: Smoke-run every benchmark and parameter combination
         run: |
           java -jar target/benchmarks.jar \
             -bm avgt -tu ms -t 1 -f 1 -wf 0 \
@@ -73,5 +77,6 @@ jobs:
               summary.write(
                   f"Verified {len(expected)} benchmark methods and {len(results)} "
                   "benchmark/parameter cases against the NeqSim JAR declared in pom.xml.\n\n"
-                  "Full Maven verification and forked JMH execution passed. "
-                  "These are compatibility checks, not performance measurements.\n")
+                  "This is compatibility verification only, not a performance comparison. "
+                  "Raw JMH output may appear in the Actions log, but result files are not "
+                  "uploaded, committed, or added to benchmark-results.\n")
