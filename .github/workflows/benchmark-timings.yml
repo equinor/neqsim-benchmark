@@ -11,15 +11,6 @@ on:
       - .github/scripts/run-benchmark-timings.sh
       - .github/scripts/neqsim-jar-version.py
       - .github/scripts/benchmark-revision.py
-  pull_request:
-    paths:
-      - pom.xml
-      - src/**
-      - .github/workflows/benchmark-timings.yml
-      - .github/scripts/benchmark-timings.py
-      - .github/scripts/run-benchmark-timings.sh
-      - .github/scripts/neqsim-jar-version.py
-      - .github/scripts/benchmark-revision.py
   workflow_dispatch:
     inputs:
       baseline_version:
