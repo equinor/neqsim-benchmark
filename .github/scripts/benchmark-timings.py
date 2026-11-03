@@ -289,8 +289,8 @@ def update_history(root):
         "",
         "Benchmark suite revisions identify source and measurement-runner changes; do not attribute cross-revision timing changes to NeqSim alone.",
         "",
-        "| Benchmark Updated | Release | Baseline | Benchmark Revision | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |",
-        "| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |",
+        "| Benchmark Updated | Release | Baseline | Benchmark Revision | Cases | Lower / Higher | Overall Gain | Status | Report |",
+        "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |",
     ]
     for path, record in reversed(release_records):
         gain = f"{record['gain_percent']:+.2f}%" if record["gain_percent"] is not None else "n/a"
@@ -301,9 +301,13 @@ def update_history(root):
         builds = []
         for variant, result in record.get("build_status", {}).items():
             builds.append(f"{variant}: {result['status']}")
-        build_text = "; ".join(builds) or "not recorded"
+        status_text = record["status"]
+        if status_text != "complete":
+            build_text = "; ".join(builds) or "builds not recorded"
+            status_text += f" ({build_text})"
         revision = record.get("benchmark_revision") or {}
         suite_label = revision.get("label", "not recorded")
+        suite_label = re.sub(r"^(B\d+-[0-9a-f]{6})[0-9a-f]+$", r"\1", suite_label)
         suite_updated_at = benchmark_updated_at(revision)
         current_label = record["current_version"]
         baseline_label = record["baseline_version"]
@@ -313,9 +317,9 @@ def update_history(root):
             if "baseline" not in record["artifact_versions"]:
                 baseline_label += " (requested)"
         lines.append(f"| {suite_updated_at} | {current_label} | {baseline_label} "
-                 f"| {suite_label} | {build_text} | {record['matched_cases']} "
+                 f"| {suite_label} | {record['matched_cases']} "
                  f"| {record['faster_cases']} / {record['slower_cases']} "
-                 f"| {gain} | {record['status']} | [View results]({report}) |")
+                 f"| {gain} | {status_text} | [View results]({report}) |")
     (root / "summary.md").write_text("\n".join(lines) + "\n")
 
 
