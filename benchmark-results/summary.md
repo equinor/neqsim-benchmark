@@ -11,7 +11,8 @@ Benchmark suite revisions identify source and measurement-runner changes; do not
 
 | Benchmark Updated | Release | Baseline | Benchmark Revision | Suite vs previous | Maven Builds | Cases | Lower / Higher | Overall Gain | Status | Report |
 | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |
-| 2026-10-28 | 3.18.0 | 3.17.0 | B14-87c78035e6f4 | first recorded suite | baseline: passed (exit 0); current: passed (exit 0) | 23 | 15 / 8 | +1.28% | complete | [View results](releases/neqsim-3.18.0/from-3.17.0/run-41029885485-1/comparison.md) |
+| 2026-10-28 | 3.19.0 | 3.18.0 | B14-87c78035e6f4 | first recorded suite | baseline: passed (exit 0); current: passed (exit 0) | 23 | 11 / 12 | -4.10% | complete | [View results](releases/neqsim-3.19.0/from-3.18.0/run-41401550594-1/comparison.md) |
+| 2026-10-28 | 3.18.0 | 3.17.0 | B14-87c78035e6f4 | same suite | baseline: passed (exit 0); current: passed (exit 0) | 23 | 15 / 8 | +1.28% | complete | [View results](releases/neqsim-3.18.0/from-3.17.0/run-41029885485-1/comparison.md) |
 | 2026-10-28 | 3.17.0 | 3.16.0 | B14-87c78035e6f4 | same suite | baseline: passed (exit 0); current: passed (exit 0) | 23 | 12 / 11 | -0.50% | complete | [View results](releases/neqsim-3.17.0/from-3.16.0/run-40838248606-1/comparison.md) |
 | 2026-10-28 | 3.16.0 | 3.15.0 | B14-87c78035e6f4 | same suite | baseline: passed (exit 0); current: passed (exit 0) | 23 | 10 / 13 | -1.23% | complete | [View results](releases/neqsim-3.16.0/from-3.15.0/run-40801329884-1/comparison.md) |
 | 2026-10-28 | 3.15.0 | 3.14.0 | B14-87c78035e6f4 | same suite | baseline: passed (exit 0); current: passed (exit 0) | 23 | 19 / 4 | +4.82% | complete | [View results](releases/neqsim-3.15.0/from-3.14.0/run-40778266407-1/comparison.md) |
