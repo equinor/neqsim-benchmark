@@ -116,8 +116,11 @@ merge automatically.
 ## Automatic releases
 The [Release NeqSim Update workflow](.github/workflows/release-neqsim-update.yml)
 publishes a tagged release after a successful comparison confirms a dependency
-version update. Manual release requests run the comparison first. No JAR is
-uploaded.
+version update. A manual request starts a comparison when the dependency version
+has changed. Otherwise, it finds the newest complete successful comparison for
+the current NeqSim version and verifies its committed evidence. A benchmark run
+ID can be supplied to select a specific comparison instead. Existing releases
+are left unchanged. No JAR is uploaded.
 
 ## Local verification
 

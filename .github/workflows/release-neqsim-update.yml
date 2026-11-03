@@ -6,6 +6,11 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      benchmark_run_id:
+        description: "Optional run ID override; blank selects the newest validated comparison"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -43,6 +48,11 @@ jobs:
           BENCHMARK_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           BENCHMARK_SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
           MANUAL_REQUEST: ${{ github.event_name == 'workflow_dispatch' }}
+          RETRY_BENCHMARK_RUN_ID: ${{ inputs.benchmark_run_id }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          CURRENT_BRANCH_COMMIT: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           import json
           import os
@@ -51,101 +61,185 @@ jobs:
           from pathlib import Path
 
           def committed_pom(commit):
-              entries = subprocess.check_output(
-                  ["git", "ls-tree", "-z", commit, "--", "pom.xml"]).split(b"\0")
-              entries = [entry for entry in entries if entry]
-              if len(entries) != 1:
-                  raise ValueError(f"Expected one root pom.xml in commit {commit}")
-              metadata, path = entries[0].split(b"\t", 1)
-              mode, kind, object_id = metadata.split()
-              if path != b"pom.xml" or kind != b"blob" or mode not in (b"100644", b"100755"):
-                  raise ValueError(f"Expected a regular root pom.xml in commit {commit}")
-              return subprocess.check_output(["git", "cat-file", "blob", object_id.decode("ascii")])
+            entries = subprocess.check_output(
+              ["git", "ls-tree", "-z", commit, "--", "pom.xml"]).split(b"\0")
+            entries = [entry for entry in entries if entry]
+            if len(entries) != 1:
+              raise ValueError(f"Expected one root pom.xml in commit {commit}")
+            metadata, path = entries[0].split(b"\t", 1)
+            mode, kind, object_id = metadata.split()
+            if path != b"pom.xml" or kind != b"blob" or mode not in (b"100644", b"100755"):
+              raise ValueError(f"Expected a regular root pom.xml in commit {commit}")
+            return subprocess.check_output(["git", "cat-file", "blob", object_id.decode("ascii")])
 
           def neqsim_version(pom):
-              root = ET.fromstring(pom)
-              namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
-              for dependency in root.findall("m:dependencies/m:dependency", namespace):
-                  group = dependency.findtext("m:groupId", namespaces=namespace)
-                  artifact = dependency.findtext("m:artifactId", namespaces=namespace)
-                  if group == "com.equinor.neqsim" and artifact == "neqsim":
-                      version = dependency.findtext("m:version", namespaces=namespace)
-                      if version and version.strip().startswith("${") and version.strip().endswith("}"):
-                          property_name = version.strip()[2:-1]
-                          version = root.findtext(f"m:properties/m:{property_name}", namespaces=namespace)
-                      if version and version.strip() and "${" not in version:
-                          return version.strip()
-                      raise ValueError("NeqSim dependency version could not be resolved")
-              raise ValueError("NeqSim dependency not found")
+            root = ET.fromstring(pom)
+            namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+            for dependency in root.findall("m:dependencies/m:dependency", namespace):
+              group = dependency.findtext("m:groupId", namespaces=namespace)
+              artifact = dependency.findtext("m:artifactId", namespaces=namespace)
+              if group == "com.equinor.neqsim" and artifact == "neqsim":
+                version = dependency.findtext("m:version", namespaces=namespace)
+                if version and version.strip().startswith("${") and version.strip().endswith("}"):
+                  property_name = version.strip()[2:-1]
+                  version = root.findtext(f"m:properties/m:{property_name}", namespaces=namespace)
+                if version and version.strip() and "${" not in version:
+                  return version.strip()
+                raise ValueError("NeqSim dependency version could not be resolved")
+            raise ValueError("NeqSim dependency not found")
 
-          source_commit = os.environ["BENCHMARK_SOURCE_COMMIT"]
+          manual_request = os.environ["MANUAL_REQUEST"] == "true"
+          retry_run_id = os.environ.get("RETRY_BENCHMARK_RUN_ID", "").strip()
+          if retry_run_id:
+            if not manual_request:
+              raise ValueError("A benchmark run can only be retried manually")
+            if not retry_run_id.isdigit():
+              raise ValueError("Invalid benchmark run identifier")
+            metadata = json.loads(subprocess.check_output(
+              ["gh", "api", f"repos/{os.environ['GH_REPO']}/actions/runs/{retry_run_id}"],
+              text=True))
+            if str(metadata.get("id")) != retry_run_id:
+              raise ValueError("Benchmark run identifier does not match")
+            if metadata.get("path") != ".github/workflows/benchmark-timings.yml":
+              raise ValueError("Selected run is not a benchmark workflow run")
+            if metadata.get("status") != "completed" or metadata.get("conclusion") != "success":
+              raise ValueError("Selected benchmark run did not complete successfully")
+            if metadata.get("event") not in ("push", "workflow_dispatch"):
+              raise ValueError("Selected benchmark run was not started from the default branch")
+            if metadata.get("head_branch") != os.environ["DEFAULT_BRANCH"]:
+              raise ValueError("Selected benchmark run is not from the default branch")
+            if metadata.get("head_repository", {}).get("full_name") != os.environ["GH_REPO"]:
+              raise ValueError("Selected benchmark run is from a different repository")
+            source_commit = metadata.get("head_sha", "")
+            run_id = retry_run_id
+            attempt = str(metadata.get("run_attempt", ""))
+            if not attempt.isdigit():
+              raise ValueError("Invalid benchmark run attempt")
+          else:
+            source_commit = os.environ["BENCHMARK_SOURCE_COMMIT"]
+
           if not source_commit or not all(character in "0123456789abcdef" for character in source_commit):
-              raise ValueError("Invalid benchmark source commit")
+            raise ValueError("Invalid benchmark source commit")
           current_pom = committed_pom(source_commit)
           previous_pom = committed_pom(f"{source_commit}^")
           changed = neqsim_version(current_pom) != neqsim_version(previous_pom)
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"changed={str(changed).lower()}\n")
-          if not changed:
+            output.write(f"changed={str(changed).lower()}\n")
+          if not changed and not retry_run_id:
+            if manual_request:
+              current_head = os.environ.get("CURRENT_BRANCH_COMMIT", source_commit)
+              current_version = neqsim_version(committed_pom(current_head))
+              records = []
+              for path in Path("benchmark-results/releases").glob(
+                  "*/from-*/run-*/comparison.json"):
+                record = json.loads(path.read_text())
+                if (record.get("status") == "complete"
+                    and record.get("current_version") == current_version):
+                  records.append((path, record))
+              records.sort(key=lambda item: (int(item[1]["run_id"]),
+                                             int(item[1]["run_attempt"])), reverse=True)
+              for path, record in records:
+                candidate_id = str(record.get("run_id", ""))
+                candidate_attempt = str(record.get("run_attempt", ""))
+                candidate_source = record.get("source_commit", "")
+                if (not candidate_id.isdigit() or not candidate_attempt.isdigit()
+                    or not candidate_source
+                    or not all(character in "0123456789abcdef" for character in candidate_source)):
+                  continue
+                metadata = json.loads(subprocess.check_output(
+                  ["gh", "api", f"repos/{os.environ['GH_REPO']}/actions/runs/{candidate_id}"],
+                  text=True))
+                if (str(metadata.get("id")) != candidate_id
+                    or metadata.get("path") != ".github/workflows/benchmark-timings.yml"
+                    or metadata.get("status") != "completed"
+                    or metadata.get("conclusion") != "success"
+                    or metadata.get("event") not in ("push", "workflow_dispatch")
+                    or metadata.get("head_branch") != os.environ["DEFAULT_BRANCH"]
+                    or metadata.get("head_repository", {}).get("full_name") != os.environ["GH_REPO"]
+                    or metadata.get("head_sha") != candidate_source):
+                  continue
+                retry_run_id = candidate_id
+                run_id = candidate_id
+                attempt = candidate_attempt
+                source_commit = candidate_source
+                with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+                  summary.write(f"Using validated benchmark run {candidate_id} for NeqSim "
+                                f"{current_version}.\n")
+                break
+            if not retry_run_id:
               with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-                  output.write("ready=false\n")
+                output.write("ready=false\n")
               with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
-                  summary.write("Skipping release: the source commit did not change "
-                                "the NeqSim dependency version in pom.xml.\n")
+                summary.write("Skipping release: no complete, successful benchmark comparison "
+                              "was found for the current NeqSim version.\n")
               raise SystemExit(0)
-          if os.environ["MANUAL_REQUEST"] == "true":
-              raise SystemExit(0)
+          if manual_request and not retry_run_id:
+            raise SystemExit(0)
 
-          run_id = os.environ["BENCHMARK_RUN_ID"]
-          attempt = os.environ["BENCHMARK_RUN_ATTEMPT"]
+          if not retry_run_id:
+            run_id = os.environ["BENCHMARK_RUN_ID"]
+            attempt = os.environ["BENCHMARK_RUN_ATTEMPT"]
           if not run_id.isdigit() or not attempt.isdigit():
-              raise ValueError("Invalid benchmark run identifiers")
+            raise ValueError("Invalid benchmark run identifiers")
           paths = list(Path("benchmark-results/releases").glob(
-              f"*/from-*/run-{run_id}-{attempt}/comparison.json"))
+            f"*/from-*/run-{run_id}-{attempt}/comparison.json"))
           if not paths:
-              with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-                  output.write("ready=false\n")
-              raise SystemExit(0)
+            if retry_run_id:
+              raise ValueError("No committed benchmark evidence for the selected run")
+            with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write("ready=false\n")
+            raise SystemExit(0)
           candidates = [(path, json.loads(path.read_text())) for path in paths]
           record_path, record = max(candidates, key=lambda item: (int(item[1]["run_id"]),
-                                                                  int(item[1]["run_attempt"])))
-          source_commit = record["source_commit"]
+                                      int(item[1]["run_attempt"])))
+          record_source_commit = record["source_commit"]
           if record.get("status") != "complete":
-              raise ValueError("Benchmark comparison is incomplete")
-          if (source_commit != os.environ["BENCHMARK_SOURCE_COMMIT"]
-                  or record.get("run_id") != os.environ["BENCHMARK_RUN_ID"]
-                  or record.get("run_attempt") != os.environ["BENCHMARK_RUN_ATTEMPT"]):
-              raise ValueError("Benchmark results belong to a different run")
-          if not source_commit or not all(character in "0123456789abcdef" for character in source_commit):
-              raise ValueError("Invalid benchmark source commit")
+            raise ValueError("Benchmark comparison is incomplete")
+          if (record_source_commit != source_commit
+              or record.get("run_id") != run_id
+              or record.get("run_attempt") != attempt):
+            raise ValueError("Benchmark results belong to a different run")
+          if not record_source_commit or not all(character in "0123456789abcdef" for character in record_source_commit):
+            raise ValueError("Invalid benchmark source commit")
           for name in ("pom.xml", "comparison.md", "transcript.md",
-                       "baseline-benchmarks.json", "current-benchmarks.json"):
-              if not record_path.with_name(name).is_file():
-                  raise ValueError(f"Missing benchmark evidence: {name}")
+                 "baseline-benchmarks.json", "current-benchmarks.json"):
+            if not record_path.with_name(name).is_file():
+              raise ValueError(f"Missing benchmark evidence: {name}")
           target = subprocess.check_output(
-              ["git", "log", "-1", "--format=%H", "--", str(record_path)], text=True).strip()
+            ["git", "log", "-1", "--format=%H", "--", str(record_path)], text=True).strip()
           if not target:
-              raise ValueError("Benchmark results have not been committed")
+            raise ValueError("Benchmark results have not been committed")
           pom = committed_pom(target)
           if pom != record_path.with_name("pom.xml").read_bytes():
-              raise ValueError("The results commit POM differs from the benchmarked POM")
+            raise ValueError("The results commit POM differs from the benchmarked POM")
           version = neqsim_version(pom)
           if version != record.get("current_version"):
-              raise ValueError("The results commit contains a different NeqSim version; rerun benchmarks")
+            raise ValueError("The results commit contains a different NeqSim version; rerun benchmarks")
+          if retry_run_id:
+            current_head = os.environ.get("CURRENT_BRANCH_COMMIT", source_commit)
+            current_version = neqsim_version(committed_pom(current_head))
+            if version != current_version:
+              raise ValueError("Selected benchmark version is not the current default-branch version")
+            subprocess.run(["git", "diff", "--exit-code", source_commit, current_head, "--",
+                            "src", ".github/scripts/benchmark-timings.py",
+                            ".github/scripts/run-benchmark-timings.sh",
+                            ".github/scripts/neqsim-jar-version.py",
+                            ".github/scripts/benchmark-revision.py"], check=True)
+          subprocess.run(["git", "merge-base", "--is-ancestor", source_commit, target], check=True)
           subprocess.run(["git", "diff", "--exit-code", source_commit, target, "--",
-                          "src", ".github/scripts/benchmark-timings.py",
-                          ".github/scripts/run-benchmark-timings.sh",
-                          ".github/scripts/neqsim-jar-version.py",
-                          ".github/scripts/benchmark-revision.py"], check=True)
+                  "src", ".github/scripts/benchmark-timings.py",
+                  ".github/scripts/run-benchmark-timings.sh",
+                  ".github/scripts/neqsim-jar-version.py",
+                  ".github/scripts/benchmark-revision.py"], check=True)
           tag = f"neqsim-{version}"
           subprocess.run(["git", "check-ref-format", f"refs/tags/{tag}"], check=True)
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"ready=true\nversion={version}\ntag={tag}\ncommit={target}\n")
+            output.write(f"ready=true\nversion={version}\ntag={tag}\ncommit={target}\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
-              summary.write(f"NeqSim {version}: releasing results commit {target}.\n")
+            summary.write(f"NeqSim {version}: releasing results commit {target}.\n")
 
       - name: Run benchmarks before a manually requested release
-        if: github.event_name == 'workflow_dispatch' && steps.neqsim.outputs.changed == 'true'
+        if: github.event_name == 'workflow_dispatch' && steps.neqsim.outputs.changed == 'true' && steps.neqsim.outputs.ready != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
