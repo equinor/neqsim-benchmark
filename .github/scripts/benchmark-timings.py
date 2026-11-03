@@ -300,7 +300,7 @@ def update_history(root):
         report = report_path.relative_to(root).as_posix()
         builds = []
         for variant, result in record.get("build_status", {}).items():
-            builds.append(f"{variant}: {result['status']} (exit {result['exit_code']})")
+            builds.append(f"{variant}: {result['status']}")
         build_text = "; ".join(builds) or "not recorded"
         revision = record.get("benchmark_revision") or {}
         suite_label = revision.get("label", "not recorded")
