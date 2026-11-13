@@ -11,6 +11,7 @@ Benchmark suite revisions identify source and measurement-runner changes; do not
 
 | Benchmark Updated | Release | Baseline | Benchmark Revision | Cases | Lower / Higher | Overall Gain | Status | Report |
 | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |
+| 2026-10-28 | 3.25.0 | 3.23.0 | B14-87c780 | 23 | 11 / 12 | +1.88% | complete | [View results](releases/neqsim-3.25.0/from-3.23.0/run-43408114341-1/comparison.md) |
 | 2026-10-28 | 3.23.0 | 3.22.0 | B14-87c780 | 23 | 14 / 9 | -8.30% | complete | [View results](releases/neqsim-3.23.0/from-3.22.0/run-43237211294-1/comparison.md) |
 | 2026-10-28 | 3.22.0 | 3.21.0 | B14-87c780 | 23 | 14 / 9 | +1.73% | complete | [View results](releases/neqsim-3.22.0/from-3.21.0/run-43099530213-1/comparison.md) |
 | 2026-10-28 | 3.21.0 | 3.20.0 | B14-87c780 | 23 | 12 / 11 | -2.42% | complete | [View results](releases/neqsim-3.21.0/from-3.20.0/run-42574721125-1/comparison.md) |
