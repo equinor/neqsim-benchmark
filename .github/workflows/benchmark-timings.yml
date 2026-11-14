@@ -3,8 +3,8 @@ name: Compare Benchmark Timings
 on:
   push:
     branches: [main]
+    # POM-only NeqSim updates are measured by Check NeqSim Updates before they merge.
     paths:
-      - pom.xml
       - src/**
       - .github/workflows/benchmark-timings.yml
       - .github/scripts/benchmark-timings.py

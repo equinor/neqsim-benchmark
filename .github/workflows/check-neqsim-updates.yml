@@ -3,8 +3,14 @@ name: Check NeqSim Updates
 on:
   release:
     types: [published]
+  # Merging a dependency update changes pom.xml on the default branch; checking again right away
+  # chains one comparison per NeqSim release until the dependency is up to date.
+  push:
+    branches: [main]
+    paths:
+      - pom.xml
   schedule:
-    - cron: "23 6 * * 1"
+    - cron: "23 6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -100,10 +106,21 @@ jobs:
 
       - name: Detect dependency update
         id: update
+        env:
+          NEXT_VERSION: ${{ steps.next.outputs.version }}
         run: |
+          # The daily check must not re-run the multi-hour comparison while a pull request for
+          # the same release is still open for review.
+          proposed=""
+          if git fetch --quiet --depth 1 origin automation/neqsim-update 2>/dev/null; then
+            proposed="$(git show FETCH_HEAD:pom.xml | python3 -c 'import re,sys; m=re.search(r"<neqsim.version>([^<]+)</neqsim.version>", sys.stdin.read()); print(m.group(1) if m else "")')"
+          fi
           if git diff --quiet -- pom.xml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "NeqSim is already up to date." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ -n "$NEXT_VERSION" && "$proposed" == "$NEXT_VERSION" && "${{ github.event_name }}" != workflow_dispatch ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "A pull request for NeqSim $NEXT_VERSION is already open; run manually to re-measure it." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "The next NeqSim release is available; verifying the build." >> "$GITHUB_STEP_SUMMARY"
@@ -131,6 +148,31 @@ jobs:
             --current-list "$RUNNER_TEMP/current-benchmarks.txt" \
             --archive-dir benchmark-results --pom-file pom.xml \
             --source-commit "$(git rev-parse HEAD)" --run-url "$RUN_URL"
+          {
+            printf 'Update `com.equinor.neqsim:neqsim` from %s to the next stable release, %s.\n\n' \
+              "$BASELINE_VERSION" "$CURRENT_VERSION"
+            if [[ -f "$RUNNER_TEMP/benchmark-timing-summary.md" ]]; then
+              cat "$RUNNER_TEMP/benchmark-timing-summary.md"
+            else
+              printf 'No timing summary was produced; see the saved transcript.\n'
+            fi
+            printf '\n---\n\n'
+            printf 'Full results, raw JMH JSON, the POM snapshot and transcripts are saved under `benchmark-results/`.\n'
+            printf 'Both versions were checked with Java 21. Maven build failures and correctness test failures are\n'
+            printf 'recorded without blocking this PR; incomplete runs report no overall gain and do not qualify for a\n'
+            printf 'benchmark-verified release. Prereleases are excluded and intermediate stable releases are not skipped:\n'
+            printf 'merging this PR starts the check for the next release automatically.\n'
+            printf 'Review compatibility and benchmark results before merging.\n'
+          } > "$RUNNER_TEMP/pull-request-body.md"
+          # GitHub limits pull request bodies to 65536 characters.
+          python3 - "$RUNNER_TEMP/pull-request-body.md" <<'PY'
+          import sys
+          from pathlib import Path
+          path = Path(sys.argv[1])
+          text = path.read_text()
+          if len(text) > 60000:
+              path.write_text(text[:60000] + "\n\n(Truncated; see benchmark-results/ for the full report.)\n")
+          PY
 
       - name: Verify measured base is still the default branch head
         if: steps.update.outputs.changed == 'true'
@@ -160,14 +202,4 @@ jobs:
             benchmark-results/
           commit-message: "build: update NeqSim to ${{ steps.next.outputs.version }}"
           title: "build: update NeqSim to ${{ steps.next.outputs.version }}"
-          body: |
-            Update `com.equinor.neqsim:neqsim` to the next stable release, ${{ steps.next.outputs.version }}.
-
-            The updated POM and full benchmark timing results are included in this PR.
-            Both versions were checked with Java 21. See the saved reports for build and timing status.
-            The results include the exact POM snapshot, tables, raw JMH JSON, and transcripts.
-            Maven build failures are recorded without blocking this PR; incomplete runs report no overall gain.
-            Incomplete results do not qualify for a benchmark-verified release. Prereleases are excluded.
-            Intermediate stable releases are not skipped. After this PR is merged,
-            the next weekly or manual check opens a separate PR for the next version if needed.
-            Review compatibility and benchmark results before merging.
+          body-path: ${{ runner.temp }}/pull-request-body.md

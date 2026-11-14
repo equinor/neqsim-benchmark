@@ -6,6 +6,8 @@ on:
       - 'src/main/java/com/equinor/neqsim/benchmark/**'
       - 'src/main/resources/fluids/**'
       - 'src/test/java/com/equinor/neqsim/benchmark/**'
+      - '.github/scripts/**'
+      - '.github/workflows/verify-benchmarks.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,6 +30,9 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+
+      - name: Test the timing report scripts
+        run: python3 -m unittest discover -s .github/scripts -v
 
       - name: Build and test against the declared NeqSim dependency
         run: |

@@ -141,9 +141,33 @@ which `LongRunSmokeTest` calls with a small size.
 ## Update neqsim-jar
 NeqSim is available from Maven Central; update its dependency in [pom.xml](pom.xml).
 The [Check NeqSim Updates workflow](.github/workflows/check-neqsim-updates.yml)
-checks for stable releases weekly and when a release is published. It opens a
-reviewable PR with the dependency update and benchmark comparison; it does not
-merge automatically.
+checks Maven Central daily for the next stable release. It benchmarks the
+current and next release with identical sources and opens a reviewable PR with
+the dependency update, the saved results and the speed summary in the PR body;
+it does not merge automatically. Intermediate releases are never skipped:
+merging the PR changes `pom.xml`, which starts the check for the following
+release right away, so the repository steps through releases one comparison at
+a time. While a PR for a release is open, the daily check does not re-measure
+it; run the workflow manually to do so.
+
+## Reading a speed report
+
+Each comparison (`comparison.md`, the PR body and the Actions step summary)
+starts with a verdict such as **Overall: 3.37% faster**: the geometric mean of
+the current/baseline time ratios over all matched cases. It then gives:
+
+- **By area**: the same gain for each benchmark package (`flash`, `process`,
+  `thermo`, `numerics`, `fluidmechanics`, `longrun`).
+- **Significantly faster / slower**: cases whose JMH 99.9% confidence
+  intervals do not overlap. Other differences are within run-to-run noise.
+- **Correctness checks**: the JUnit tests that verify benchmark results
+  (convergence, mass balances, expected values) for each version. They run
+  separately from the timings, so a NeqSim correctness regression is reported
+  alongside the timings instead of discarding them. A test that fails on the
+  release but passes on the baseline is listed as a correctness regression.
+
+[summary.md](benchmark-results/summary.md) collects the verdicts of all
+release comparisons.
 
 ## Automatic releases
 The [Release NeqSim Update workflow](.github/workflows/release-neqsim-update.yml)
@@ -161,6 +185,13 @@ Run the current-JAR compatibility checks with:
 ```sh
 mvn clean verify -DargLine=-Xmx1g \
   -Dsurefire.forkedProcessTimeoutInSeconds=1200
+```
+
+Compare two NeqSim releases locally (several hours for the full suite; results
+and the Markdown summary go to `benchmark-run/`):
+
+```sh
+bash .github/scripts/run-benchmark-timings.sh 3.27.0 3.28.0
 ```
 
 ## Pull request compatibility check

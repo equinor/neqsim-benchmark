@@ -1,12 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Usage: run-benchmark-timings.sh <baseline-version> <current-version>
+# In GitHub Actions, results go to $RUNNER_TEMP. Locally, they default to ./benchmark-run.
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 <baseline-neqsim-version> <current-neqsim-version>" >&2
+  exit 2
+fi
 baseline_version="$1"
 current_version="$2"
+export RUNNER_TEMP="${RUNNER_TEMP:-$PWD/benchmark-run}"
+export GITHUB_STEP_SUMMARY="${GITHUB_STEP_SUMMARY:-$RUNNER_TEMP/step-summary.md}"
+mkdir -p "$RUNNER_TEMP"
 version_property="${NEQSIM_PROPERTY-neqsim.version}"
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-python3 "$script_dir/benchmark-revision.py" --repository "$PWD" \
-  --output "$RUNNER_TEMP/benchmark-revision.json" --summary "$GITHUB_STEP_SUMMARY"
+if ! python3 "$script_dir/benchmark-revision.py" --repository "$PWD" \
+  --output "$RUNNER_TEMP/benchmark-revision.json" --summary "$GITHUB_STEP_SUMMARY"; then
+  # CI needs the suite identity to archive results. Local runs (e.g. a shallow clone)
+  # can still compare timings without it.
+  if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+    exit 1
+  fi
+  echo "Warning: benchmark suite revision not recorded; continuing with a local run." >&2
+fi
 project_dir="$RUNNER_TEMP/benchmark-project"
 mkdir -p "$project_dir"
 cp pom.xml "$project_dir/pom.xml"
@@ -54,7 +70,8 @@ for variant in baseline current; do
   rm -f "$RUNNER_TEMP/$variant-benchmarks.json" "$RUNNER_TEMP/$variant-benchmarks.txt" \
     "$RUNNER_TEMP/$variant-regular-benchmarks.json" "$RUNNER_TEMP/$variant-long-running-benchmarks.json" \
     "$RUNNER_TEMP/$variant-benchmarks.log" "$RUNNER_TEMP/$variant-artifact.json" \
-    "$RUNNER_TEMP/$variant-classpath.txt"
+    "$RUNNER_TEMP/$variant-classpath.txt" "$RUNNER_TEMP/$variant-tests.log" \
+    "$RUNNER_TEMP/$variant-tests-exit-code.txt" "$RUNNER_TEMP/$variant-test-failures.txt"
   if [[ "$variant" == baseline ]]; then
     version="$baseline_version"
   else
@@ -75,8 +92,10 @@ for variant in baseline current; do
       -Dmdep.outputFile="$RUNNER_TEMP/$variant-classpath.txt" || exit "$?"
     python3 "$script_dir/neqsim-jar-version.py" "$RUNNER_TEMP/$variant-classpath.txt" \
       "$version" "$RUNNER_TEMP/$variant-artifact.json" || exit "$?"
-    printf '$ mvn clean verify -D%s=%s\n' "${version_property:-neqsim.version}" "$version"
-    run_maven -f "$project_dir/pom.xml" clean verify \
+    # Compile and package only. Correctness tests run separately below, so a NeqSim
+    # regression is reported without discarding the timing comparison.
+    printf '$ mvn clean package -DskipTests -D%s=%s\n' "${version_property:-neqsim.version}" "$version"
+    run_maven -f "$project_dir/pom.xml" clean package -DskipTests \
       "-D${version_property:-neqsim.version}=$version"
   ) 2>&1 | tee "$RUNNER_TEMP/$variant-build.log"; then
     printf '0\n' > "$RUNNER_TEMP/$variant-build-exit-code.txt"
@@ -89,6 +108,18 @@ for variant in baseline current; do
     build_failures=$((build_failures + 1))
     continue
   fi
+  printf '$ mvn surefire:test -D%s=%s\n' "${version_property:-neqsim.version}" "$version" \
+    > "$RUNNER_TEMP/$variant-tests.log"
+  if run_maven -f "$project_dir/pom.xml" surefire:test \
+    "-D${version_property:-neqsim.version}=$version" \
+    -DargLine=-Xmx1g -Dsurefire.forkedProcessTimeoutInSeconds=1200 \
+    >> "$RUNNER_TEMP/$variant-tests.log" 2>&1; then
+    printf '0\n' > "$RUNNER_TEMP/$variant-tests-exit-code.txt"
+  else
+    printf '%s\n' "$?" > "$RUNNER_TEMP/$variant-tests-exit-code.txt"
+  fi
+  python3 "$script_dir/surefire-failures.py" "$project_dir/target/surefire-reports" \
+    > "$RUNNER_TEMP/$variant-test-failures.txt"
   java -jar "$project_dir/target/benchmarks.jar" -l > "$RUNNER_TEMP/$variant-benchmarks.txt"
   # Regular benchmarks: two forks with warmup. Each operation takes at most a few minutes.
   java -jar "$project_dir/target/benchmarks.jar" \
