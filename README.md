@@ -106,6 +106,38 @@ indicative, not a release-quality performance gate. See the
 - Solves a short stratified methane-water pipe with non-equilibrium interphase heat and mass transfer.
 - Returns the outlet pressure.
 
+### Long-running workloads
+
+Benchmarks in the `longrun` package take from about 30 seconds to five minutes
+per operation. The timing runner measures them separately with one fork, no
+warmup iteration and two measured operations; their confidence intervals are
+therefore wide. Each class exposes a static method taking the workload size,
+which `LongRunSmokeTest` calls with a small size.
+
+**`TwoFluidTransientBenchmark.gasCondensateFlowlineRampUp`** (about 1 min)
+- Solves a 5 km hilly gas-condensate flowline (40 sections) with the `TwoFluidPipe` two-fluid model at steady state.
+- Ramps the inlet rate up by 60 % and back down while integrating 1,200 one-second transient steps; returns outlet pressure, liquid inventory and pressure profile.
+
+**`ProcessSimulationBenchmark.gasProcessingTrainSweep`** (about 30 s per EOS)
+- Builds and converges a three-stage separation, recompression and export compression train with two liquid recycles for 48 operating cases.
+- JMH parameterizes the 20-component well fluid with SRK and PR.
+
+**`PropertyTableBenchmark.olgaThreePhaseTable`** (about 30 s)
+- Generates and writes a 130 x 130 three-phase OLGA keyword-format property table for a gas-condensate-water fluid.
+- Returns the table size in characters.
+
+**`PropertyTableBenchmark.tpPropertyGrid`** (about 30 s)
+- TP-flashes the PR well fluid on a 150 x 150 temperature-pressure grid and evaluates physical and transport properties at every point.
+- Returns a checksum of the tabulated properties.
+
+**`DynamicProcessBenchmark.separationControlTransient`** (about 1 min)
+- Integrates an HP and LP separation process with PID level and pressure control through inlet valve opening steps: 3,600 two-second steps.
+- Returns a checksum of separator levels, pressures and valve openings.
+
+**`MlTrainingDataBenchmark.processSurrogateDataset`** (about 5 min)
+- Re-solves the PR gas processing train for 700 randomly sampled (fixed seed) operating points, as when generating surrogate model training data.
+- Records inputs and responses with NeqSim's `TrainingDataCollector` and exports them as CSV.
+
 ## Update neqsim-jar
 NeqSim is available from Maven Central; update its dependency in [pom.xml](pom.xml).
 The [Check NeqSim Updates workflow](.github/workflows/check-neqsim-updates.yml)

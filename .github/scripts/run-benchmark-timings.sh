@@ -41,6 +41,9 @@ run_maven() {
   done
 }
 
+# Benchmarks in this package take 30 s to 5 min per operation and get their own JMH settings.
+long_running_pattern='com\.equinor\.neqsim\.benchmark\.longrun\.'
+
 build_failures=0
 {
   printf '## Maven Build Results\n\n'
@@ -49,6 +52,7 @@ build_failures=0
 
 for variant in baseline current; do
   rm -f "$RUNNER_TEMP/$variant-benchmarks.json" "$RUNNER_TEMP/$variant-benchmarks.txt" \
+    "$RUNNER_TEMP/$variant-regular-benchmarks.json" "$RUNNER_TEMP/$variant-long-running-benchmarks.json" \
     "$RUNNER_TEMP/$variant-benchmarks.log" "$RUNNER_TEMP/$variant-artifact.json" \
     "$RUNNER_TEMP/$variant-classpath.txt"
   if [[ "$variant" == baseline ]]; then
@@ -86,11 +90,35 @@ for variant in baseline current; do
     continue
   fi
   java -jar "$project_dir/target/benchmarks.jar" -l > "$RUNNER_TEMP/$variant-benchmarks.txt"
+  # Regular benchmarks: two forks with warmup. Each operation takes at most a few minutes.
   java -jar "$project_dir/target/benchmarks.jar" \
+    -e "$long_running_pattern" \
     -bm avgt -tu ms -t 1 -f 2 -wf 0 \
     -wi 2 -w 2s -i 3 -r 2s -foe false \
-    -rf json -rff "$RUNNER_TEMP/$variant-benchmarks.json" \
+    -rf json -rff "$RUNNER_TEMP/$variant-regular-benchmarks.json" \
     2>&1 | tee "$RUNNER_TEMP/$variant-benchmarks.log"
+  # Long-running workloads (30 s to 5 min per operation): one fork, no separate warmup
+  # iteration and two measured operations, to stay within the CI time budget.
+  java -jar "$project_dir/target/benchmarks.jar" \
+    "$long_running_pattern" \
+    -bm avgt -tu ms -t 1 -f 1 -wf 0 \
+    -wi 0 -i 2 -r 1ms -foe false \
+    -rf json -rff "$RUNNER_TEMP/$variant-long-running-benchmarks.json" \
+    2>&1 | tee -a "$RUNNER_TEMP/$variant-benchmarks.log"
+  python3 - "$RUNNER_TEMP/$variant-benchmarks.json" \
+    "$RUNNER_TEMP/$variant-regular-benchmarks.json" \
+    "$RUNNER_TEMP/$variant-long-running-benchmarks.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+merged = []
+for part in sys.argv[2:]:
+    path = Path(part)
+    if path.exists() and path.stat().st_size > 0:
+        merged.extend(json.loads(path.read_text()))
+Path(sys.argv[1]).write_text(json.dumps(merged, indent=2))
+PY
 done
 
 if [[ "$build_failures" -gt 0 ]]; then

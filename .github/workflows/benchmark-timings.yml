@@ -24,7 +24,7 @@ permissions:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - name: Check out benchmark sources
         uses: actions/checkout@v7.0.1
