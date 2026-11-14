@@ -106,12 +106,68 @@ indicative, not a release-quality performance gate. See the
 - Solves a short stratified methane-water pipe with non-equilibrium interphase heat and mass transfer.
 - Returns the outlet pressure.
 
+### Long-running workloads
+
+Benchmarks in the `longrun` package take from about 30 seconds to five minutes
+per operation. The timing runner measures them separately with one fork, no
+warmup iteration and two measured operations; their confidence intervals are
+therefore wide. Each class exposes a static method taking the workload size,
+which `LongRunSmokeTest` calls with a small size.
+
+**`TwoFluidTransientBenchmark.gasCondensateFlowlineRampUp`** (about 1 min)
+- Solves a 5 km hilly gas-condensate flowline (40 sections) with the `TwoFluidPipe` two-fluid model at steady state.
+- Ramps the inlet rate up by 60 % and back down while integrating 1,200 one-second transient steps; returns outlet pressure, liquid inventory and pressure profile.
+
+**`ProcessSimulationBenchmark.gasProcessingTrainSweep`** (about 30 s per EOS)
+- Builds and converges a three-stage separation, recompression and export compression train with two liquid recycles for 48 operating cases.
+- JMH parameterizes the 20-component well fluid with SRK and PR.
+
+**`PropertyTableBenchmark.olgaThreePhaseTable`** (about 30 s)
+- Generates and writes a 130 x 130 three-phase OLGA keyword-format property table for a gas-condensate-water fluid.
+- Returns the table size in characters.
+
+**`PropertyTableBenchmark.tpPropertyGrid`** (about 30 s)
+- TP-flashes the PR well fluid on a 150 x 150 temperature-pressure grid and evaluates physical and transport properties at every point.
+- Returns a checksum of the tabulated properties.
+
+**`DynamicProcessBenchmark.separationControlTransient`** (about 1 min)
+- Integrates an HP and LP separation process with PID level and pressure control through inlet valve opening steps: 3,600 two-second steps.
+- Returns a checksum of separator levels, pressures and valve openings.
+
+**`MlTrainingDataBenchmark.processSurrogateDataset`** (about 5 min)
+- Re-solves the PR gas processing train for 700 randomly sampled (fixed seed) operating points, as when generating surrogate model training data.
+- Records inputs and responses with NeqSim's `TrainingDataCollector` and exports them as CSV.
+
 ## Update neqsim-jar
 NeqSim is available from Maven Central; update its dependency in [pom.xml](pom.xml).
 The [Check NeqSim Updates workflow](.github/workflows/check-neqsim-updates.yml)
-checks for stable releases weekly and when a release is published. It opens a
-reviewable PR with the dependency update and benchmark comparison; it does not
-merge automatically.
+checks Maven Central daily for the next stable release. It benchmarks the
+current and next release with identical sources and opens a reviewable PR with
+the dependency update, the saved results and the speed summary in the PR body;
+it does not merge automatically. Intermediate releases are never skipped:
+merging the PR changes `pom.xml`, which starts the check for the following
+release right away, so the repository steps through releases one comparison at
+a time. While a PR for a release is open, the daily check does not re-measure
+it; run the workflow manually to do so.
+
+## Reading a speed report
+
+Each comparison (`comparison.md`, the PR body and the Actions step summary)
+starts with a verdict such as **Overall: 3.37% faster**: the geometric mean of
+the current/baseline time ratios over all matched cases. It then gives:
+
+- **By area**: the same gain for each benchmark package (`flash`, `process`,
+  `thermo`, `numerics`, `fluidmechanics`, `longrun`).
+- **Significantly faster / slower**: cases whose JMH 99.9% confidence
+  intervals do not overlap. Other differences are within run-to-run noise.
+- **Correctness checks**: the JUnit tests that verify benchmark results
+  (convergence, mass balances, expected values) for each version. They run
+  separately from the timings, so a NeqSim correctness regression is reported
+  alongside the timings instead of discarding them. A test that fails on the
+  release but passes on the baseline is listed as a correctness regression.
+
+[summary.md](benchmark-results/summary.md) collects the verdicts of all
+release comparisons.
 
 ## Automatic releases
 The [Release NeqSim Update workflow](.github/workflows/release-neqsim-update.yml)
@@ -129,6 +185,13 @@ Run the current-JAR compatibility checks with:
 ```sh
 mvn clean verify -DargLine=-Xmx1g \
   -Dsurefire.forkedProcessTimeoutInSeconds=1200
+```
+
+Compare two NeqSim releases locally (several hours for the full suite; results
+and the Markdown summary go to `benchmark-run/`):
+
+```sh
+bash .github/scripts/run-benchmark-timings.sh 3.27.0 3.28.0
 ```
 
 ## Pull request compatibility check

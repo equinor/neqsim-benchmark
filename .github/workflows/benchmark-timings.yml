@@ -3,8 +3,8 @@ name: Compare Benchmark Timings
 on:
   push:
     branches: [main]
+    # POM-only NeqSim updates are measured by Check NeqSim Updates before they merge.
     paths:
-      - pom.xml
       - src/**
       - .github/workflows/benchmark-timings.yml
       - .github/scripts/benchmark-timings.py
@@ -24,7 +24,7 @@ permissions:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - name: Check out benchmark sources
         uses: actions/checkout@v7.0.1

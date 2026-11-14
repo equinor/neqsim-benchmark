@@ -68,6 +68,21 @@ class OilGasPlatformModelTest {
         "1st stage gas A %.3f MSm3/d, export gas %.3f MSm3/d, KA27841 A %.1f bara, pipeline outlet %.1f bara%n",
         firstStageGasA, exportGas, ka27841A, pipelineOutlet);
 
+    // Both export compressor stages must operate on their charts: a point beyond the choke line extrapolates to
+    // negative head (outlet pressure below inlet) and, on NeqSim 3.27.0, to a non-conserved outlet flow.
+    for (String area : new String[] {OilGasPlatformModel.COMPRESSOR_A, OilGasPlatformModel.COMPRESSOR_B}) {
+      for (String name : new String[] {"KA27831", "KA27841"}) {
+        Compressor compressor = (Compressor) model.get(area).getUnit(name);
+        double inletPressure = compressor.getInletStream().getPressure("bara");
+        double outletPressure = compressor.getOutletStream().getPressure("bara");
+        double inletFlow = compressor.getInletStream().getFlowRate("kg/hr");
+        double outletFlow = compressor.getOutletStream().getFlowRate("kg/hr");
+        assertTrue(outletPressure > inletPressure,
+            area + " " + name + " outlet " + outletPressure + " bara <= inlet " + inletPressure + " bara");
+        assertEquals(inletFlow, outletFlow, 1.0e-6 * inletFlow, area + " " + name + " mass balance");
+      }
+    }
+
     // Same expectations as the NeqSim LargeCombinedModelsTest, with loose tolerances.
     assertEquals(5.31, firstStageGasA, 0.3);
     assertTrue(exportGas > 10.0 && exportGas < 25.0, "export gas " + exportGas);

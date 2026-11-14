@@ -44,6 +44,11 @@ PR, so they are merged together. Maven failures do not block the PR: each build'
 status and exit code are included in comparison tables, JSON, and the cumulative
 summary. Full Maven output is retained in the transcript, and failed variants
 have no JMH timings. Such comparisons are incomplete and have no overall gain.
+The Maven build only compiles and packages; the JUnit correctness tests run
+afterwards and do not stop the timings. Their results are stored per variant
+in `comparison.json` (`correctness`, `correctness_regressions`), shown in
+`comparison.md`, and summarized in the **Correctness** column of the history.
+Comparisons made before this change show `not recorded`.
 Release creation still requires complete committed results and an exact match between the measured POM snapshot
 and the release commit's POM.
 
