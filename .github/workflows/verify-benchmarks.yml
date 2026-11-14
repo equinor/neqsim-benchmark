@@ -34,16 +34,28 @@ jobs:
       - name: Test the timing report scripts
         run: python3 -m unittest discover -s .github/scripts -v
 
-      - name: Build and test against the declared NeqSim dependency
+      - name: Build against the declared NeqSim dependency
+        id: build
+        run: mvn --batch-mode --no-transfer-progress clean package -DskipTests
+
+      # The correctness tests and the benchmark smoke run are independent: both always run after a
+      # successful build, so a correctness failure does not hide whether every benchmark still runs.
+      # Either failing fails the job.
+      - name: Run correctness tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
-          mvn --batch-mode --no-transfer-progress clean verify \
+          mvn --batch-mode --no-transfer-progress surefire:test \
             -DargLine=-Xmx1g -Dsurefire.forkedProcessTimeoutInSeconds=1200
 
       - name: Discover all benchmark methods
+        id: discover
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           java -jar target/benchmarks.jar -l | tee "$RUNNER_TEMP/benchmark-list.txt"
 
       - name: Smoke-run every benchmark and parameter combination
+        id: smoke
+        if: ${{ !cancelled() && steps.discover.outcome == 'success' }}
         run: |
           java -jar target/benchmarks.jar \
             -bm avgt -tu ms -t 1 -f 1 -wf 0 \
@@ -52,6 +64,7 @@ jobs:
             -rf json -rff "$RUNNER_TEMP/benchmark-smoke.json"
 
       - name: Verify complete finite benchmark results
+        if: ${{ !cancelled() && steps.smoke.outcome == 'success' }}
         shell: python
         run: |
           import json
