@@ -1,0 +1,118 @@
+{
+  "baseline_version": "3.27.0",
+  "current_version": "3.28.0",
+  "run_id": "43646179849",
+  "run_attempt": "1",
+  "source_commit": "430b3ec36281083a562276bac864c7e163e45939",
+  "benchmark_revision": {
+    "number": 15,
+    "label": "B15-c61b4669e2ef",
+    "fingerprint": "c61b4669e2ef0e746fc04e1631684b294bc6f2a829ed71d1c891b79bffb756ee",
+    "source_commit": "430b3ec36281083a562276bac864c7e163e45939",
+    "updated_at": "2026-11-14",
+    "uncommitted_changes": false,
+    "scopes": [
+      "src/main/java",
+      "src/main/resources",
+      ".github/scripts/run-benchmark-timings.sh"
+    ],
+    "files": {
+      ".github/scripts/run-benchmark-timings.sh": "c97e4d5c105cbf7cdce91c6b0111706a770456da0de8b72bffc4a358ca65f634",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/FlashBenchmark.java": "16e923506b507f652653ce4709a31c2ffd57aca63da4facbb1acb5a408df33c5",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/TPflash.java": "5dfd00a3bd4cb4b497da1d3b47f2303f351c3bc570b61b528765919b920031ab",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/TPflash_UMR.java": "925cc33c89f7dad0ec3ba4bf2567d283f80790fc465c963b45f4a8202536773e",
+      "src/main/java/com/equinor/neqsim/benchmark/fluidmechanics/PipeFlowSolverBenchmark.java": "76fdf4910236068de1c14af59b07a4fa1c33995047d29f1d320549dc36f08cab",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/DynamicProcessBenchmark.java": "0be5ccf2459d1b32c0dc01e8912b22ce2b49970abf3f57064893d68f442e354b",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/GasProcessingTrain.java": "d93bb96f7c68276f640350dfb9b0d2be4cd1c4f7d4f41d95fb4f0eb43243c2ad",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/MlTrainingDataBenchmark.java": "203f967c089de8b306381ddbeff940b83dd1524f76d40b59f9709ab6eba8ec81",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/ProcessSimulationBenchmark.java": "b9fcfdc54d8b6905e123bd6dd07e206a02924a8896bbeb3daeed8d6c8b222a31",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/PropertyTableBenchmark.java": "82fac010d55dff71be7c997c28d3883e2c03b98c83a28111e42193ffb64fec54",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/TwoFluidTransientBenchmark.java": "8f0fab86864170b00e344994e3d912f69975b20913afb312c0b6cc546724cc9b",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/package-info.java": "349faa2672b4d7ffde90e0e884ddd3bac9d30bc5a1653e28234c77df8275c947",
+      "src/main/java/com/equinor/neqsim/benchmark/numerics/LinearAlgebraKernelBenchmark.java": "c65dc1394ea88648f719e2eb2259a0c496fa188221d96ccb0fb7f039b2a06dc7",
+      "src/main/java/com/equinor/neqsim/benchmark/process/Compressor_Benchmark.java": "4c5fd06e5e1e1888b1fc7fe9accef39262ccf310f028c7741a1d43d54dcfdd50",
+      "src/main/java/com/equinor/neqsim/benchmark/process/LargeProcessModelBenchmark.java": "43aed65eaf92203243dfb1a06204f28466c06b7c6e1b93f532806f806f94ccd0",
+      "src/main/java/com/equinor/neqsim/benchmark/process/OilGasPlatformModel.java": "0a0f4df4c9dd8a00bb43a6ead7a9d8edec2ee337e1e05c21672ed09a0eda7b78",
+      "src/main/java/com/equinor/neqsim/benchmark/process/TEGprocess.java": "2e3be31a0adf16c5f7ae5c6854babfd8df641e2e9d241ef8467ff16e1de35602",
+      "src/main/java/com/equinor/neqsim/benchmark/thermo/InterfacialTensionBenchmark.java": "8774baa0bf170ed6646a4f67b67cb9d9259b8b765202417a6f16bd0892b3d669",
+      "src/main/java/com/equinor/neqsim/benchmark/thermo/PhaseEnvelopeBenchmark.java": "7abf7ec3acdca4a3c1599fa3ee33670b708855c207103f16dc8d3e6bb83ca78c",
+      "src/main/java/com/equinor/neqsim/benchmark/util/BenchmarkFluids.java": "87ea44ebc643643e5acffedeadb95d6bba553daaed4a026d076f38646c77fdb0",
+      "src/main/resources/fluids/platform_feed.e300": "32f4eb0253f888fa2c96a36fe76d26e085dda3308d5a80b11ce9899993aceb7b"
+    },
+    "changes": {
+      "added": [
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/DynamicProcessBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/GasProcessingTrain.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/MlTrainingDataBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/ProcessSimulationBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/PropertyTableBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/TwoFluidTransientBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/package-info.java"
+      ],
+      "modified": [
+        ".github/scripts/run-benchmark-timings.sh",
+        "src/main/java/com/equinor/neqsim/benchmark/process/OilGasPlatformModel.java"
+      ],
+      "deleted": []
+    }
+  },
+  "run_url": "https://github.com/equinor/neqsim-benchmark/actions/runs/43646179849",
+  "status": "complete",
+  "include_in_history": true,
+  "build_status": {
+    "baseline": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "current": {
+      "status": "passed",
+      "exit_code": 0
+    }
+  },
+  "requested_versions": {
+    "baseline": "3.27.0",
+    "current": "3.28.0"
+  },
+  "artifact_versions": {
+    "baseline": {
+      "requested_version": "3.27.0",
+      "version": "3.27.0",
+      "jar": "/home/runner/.m2/repository/com/equinor/neqsim/neqsim/3.27.0/neqsim-3.27.0.jar",
+      "source": "embedded Maven pom.properties"
+    },
+    "current": {
+      "requested_version": "3.28.0",
+      "version": "3.28.0",
+      "jar": "/home/runner/.m2/repository/com/equinor/neqsim/neqsim/3.28.0/neqsim-3.28.0.jar",
+      "source": "embedded Maven pom.properties"
+    }
+  },
+  "matched_cases": 30,
+  "faster_cases": 11,
+  "slower_cases": 19,
+  "gain_percent": 1.025350744104736,
+  "significantly_faster_cases": 0,
+  "significantly_slower_cases": 0,
+  "area_gain_percent": {
+    "flash": -0.4613907278556484,
+    "fluidmechanics": -0.8358528924895525,
+    "longrun": -1.2718438920328978,
+    "numerics": -0.507608131528059,
+    "process": 2.022642693896892,
+    "thermo": 6.21590219161956
+  },
+  "correctness": {
+    "baseline": {
+      "status": "passed",
+      "exit_code": 0,
+      "failures": []
+    },
+    "current": {
+      "status": "passed",
+      "exit_code": 0,
+      "failures": []
+    }
+  },
+  "correctness_regressions": [],
+  "errors": []
+}
