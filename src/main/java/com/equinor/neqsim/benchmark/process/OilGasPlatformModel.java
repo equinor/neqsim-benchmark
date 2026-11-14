@@ -69,6 +69,11 @@ public final class OilGasPlatformModel {
     public double nglRoutingToOil = 0.9999;
     public double speed27831DXCompressor = 6100.0;
     public double speed27841DXCompressor = 6100.0;
+    /**
+     * Train B carries 60 % of the gas. At 6100 rpm its second stage runs beyond the choke line, where the chart
+     * extrapolates to negative head (outlet pressure below inlet); 8000 rpm keeps it on the chart.
+     */
+    public double speed27841DXCompressorTrainB = 8000.0;
     public double oilExportPumpPressure = 60.0;
     public double exportPipelineLength = 40000.0;
     public double exportPipelineDiameter = 0.9;
@@ -108,9 +113,10 @@ public final class OilGasPlatformModel {
     ProcessSystem expanderB = builder.expanderAndNglUnit(trainB);
 
     ProcessSystem compressorA = builder.exportCompressorTrain(
-        ((ThrottlingValve) expanderA.getUnit("gas split valve")).getOutletStream());
+        ((ThrottlingValve) expanderA.getUnit("gas split valve")).getOutletStream(), input.speed27841DXCompressor);
     ProcessSystem compressorB = builder.exportCompressorTrain(
-        ((ThrottlingValve) expanderB.getUnit("gas split valve")).getOutletStream());
+        ((ThrottlingValve) expanderB.getUnit("gas split valve")).getOutletStream(),
+        input.speed27841DXCompressorTrainB);
 
     ProcessSystem export = builder.exportAndUtilities(trainA, trainB, expanderA, expanderB, compressorA, compressorB);
 
@@ -434,7 +440,7 @@ public final class OilGasPlatformModel {
     return process;
   }
 
-  ProcessSystem exportCompressorTrain(StreamInterface feedStream) {
+  ProcessSystem exportCompressorTrain(StreamInterface feedStream, double secondStageSpeed) {
     ProcessSystem process = new ProcessSystem();
 
     Filter inletFilter = new Filter("export compressor inlet filter", feedStream);
@@ -515,7 +521,7 @@ public final class OilGasPlatformModel {
 
     Compressor secondCompressor = new Compressor("KA27841", interCooler.getOutletStream());
     secondCompressor.setUsePolytropicCalc(true);
-    secondCompressor.setSpeed(inp.speed27841DXCompressor);
+    secondCompressor.setSpeed(secondStageSpeed);
     secondCompressor.setUseGERG2008(false);
     secondCompressor.getCompressorChart().setCurves(chartConditions, speed2, flow2, head2, flowPolyEff2, polyEff2);
     secondCompressor.getCompressorChart().setHeadUnit("kJ/kg");
