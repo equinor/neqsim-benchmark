@@ -29,8 +29,8 @@ import org.openjdk.jmh.annotations.Warmup;
  */
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(1)
-@Warmup(iterations = 0)
-@Measurement(iterations = 2)
+@Warmup(iterations = 1)
+@Measurement(iterations = 3)
 public class TwoFluidTransientBenchmark {
 
   /** Number of pipe sections in the benchmark. */

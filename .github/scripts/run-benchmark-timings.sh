@@ -128,12 +128,13 @@ for variant in baseline current; do
     -wi 2 -w 2s -i 3 -r 2s -foe false \
     -rf json -rff "$RUNNER_TEMP/$variant-regular-benchmarks.json" \
     2>&1 | tee "$RUNNER_TEMP/$variant-benchmarks.log"
-  # Long-running workloads (30 s to 5 min per operation): one fork, no separate warmup
-  # iteration and two measured operations, to stay within the CI time budget.
+  # Long-running workloads (30 s to 5 min per operation): one fork, one warmup operation
+  # (the first operation is 5-15 % slower while the JIT compiles) and three measured
+  # operations. JMH reports no confidence interval for fewer than three measurements.
   java -jar "$project_dir/target/benchmarks.jar" \
     "$long_running_pattern" \
     -bm avgt -tu ms -t 1 -f 1 -wf 0 \
-    -wi 0 -i 2 -r 1ms -foe false \
+    -wi 1 -w 1ms -i 3 -r 1ms -foe false \
     -rf json -rff "$RUNNER_TEMP/$variant-long-running-benchmarks.json" \
     2>&1 | tee -a "$RUNNER_TEMP/$variant-benchmarks.log"
   python3 - "$RUNNER_TEMP/$variant-benchmarks.json" \

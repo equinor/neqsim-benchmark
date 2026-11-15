@@ -109,8 +109,8 @@ indicative, not a release-quality performance gate. See the
 ### Long-running workloads
 
 Benchmarks in the `longrun` package take from about 30 seconds to five minutes
-per operation. The timing runner measures them separately with one fork, no
-warmup iteration and two measured operations; their confidence intervals are
+per operation. The timing runner measures them separately with one fork, one
+warmup operation and three measured operations; their confidence intervals are
 therefore wide. Each class exposes a static method taking the workload size,
 which `LongRunSmokeTest` calls with a small size.
 
