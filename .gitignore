@@ -23,3 +23,4 @@ buildNumber.properties
 
 # Local benchmark comparison output
 benchmark-run/
+__pycache__/

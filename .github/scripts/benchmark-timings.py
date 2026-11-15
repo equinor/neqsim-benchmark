@@ -203,8 +203,8 @@ def summarize(baseline, current, baseline_version, current_version, expected, li
         "Hosted-runner timings are indicative, not a regression gate. Overlapping confidence "
         "intervals do not establish a timing difference. Full JMH results are in the run logs.",
         "Two forks, two 2-second warmups and three 2-second measurements per case, one thread. "
-        f"Long-running `{LONG_RUNNING_AREA}` cases (30 s to 5 min per operation): one fork, no warmup "
-        "and two measured operations, so their confidence intervals are wide.",
+        f"Long-running `{LONG_RUNNING_AREA}` cases (30 s to 5 min per operation): one fork, one warmup "
+        "operation and three measured operations, so their confidence intervals are wide.",
     ])
     if incomplete:
         lines.extend(["", "**Incomplete comparison: some benchmarks did not produce results.**"])
