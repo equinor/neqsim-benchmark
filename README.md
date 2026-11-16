@@ -204,3 +204,9 @@ required-check rule can block PRs that do not change benchmark files.
 
 `mvn verify` runs the project's smoke tests. Java 17 or later is required; the
 default NeqSim dependency is declared in [pom.xml](pom.xml).
+
+The timing comparison builds each NeqSim version with `-DskipTests`: it only
+needs the compiled `benchmarks.jar`, and the JUnit smoke tests check NeqSim
+results that are already tested in the NeqSim repository. A result regression
+in NeqSim therefore does not block a timing comparison or a release; a
+compile failure against the new NeqSim API still does.
