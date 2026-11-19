@@ -1,0 +1,66 @@
+name: Verify Thin NeqSim JAR
+
+on:
+  pull_request:
+    paths:
+      - 'pom.xml'
+      - 'src/**'
+      - '.github/workflows/verify-thin-jar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  thin-jar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out benchmark
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Identify NeqSim release
+        id: version
+        shell: bash
+        run: |
+          version=$(mvn --batch-mode --no-transfer-progress help:evaluate \
+            -Dexpression=neqsim.version -q -DforceStdout)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check out matching NeqSim source
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: equinor/neqsim
+          ref: v${{ steps.version.outputs.version }}
+          path: neqsim-thin-source
+          persist-credentials: false
+
+      - name: Install thin NeqSim with dependency metadata
+        shell: bash
+        run: |
+          mvn -f neqsim-thin-source/pom.xml --batch-mode --no-transfer-progress \
+            -Dmaven.repo.local="$RUNNER_TEMP/thin-m2" -Dmaven.test.skip=true \
+            compile jar:jar install:install
+          jar tf "neqsim-thin-source/target/neqsim-${{ steps.version.outputs.version }}.jar" \
+            > "$RUNNER_TEMP/neqsim-jar-contents.txt"
+          if grep -Fxq 'org/apache/logging/log4j/LogManager.class' "$RUNNER_TEMP/neqsim-jar-contents.txt"; then
+            echo "Expected a thin NeqSim JAR, but it contains Log4j classes." >&2
+            exit 1
+          fi
+
+      - name: Test and run the benchmark JAR
+        run: |
+          mvn --batch-mode --no-transfer-progress \
+            -Dmaven.repo.local="$RUNNER_TEMP/thin-m2" \
+            '-Dtest=BenchmarkSmokeTest#flashBenchmarks' package
+          java -jar target/benchmarks.jar '.*FlashBenchmark.tpFlashLeanGas' \
+            -wi 0 -i 1 -r 100ms -f 1 -foe true

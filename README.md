@@ -140,6 +140,11 @@ which `LongRunSmokeTest` calls with a small size.
 
 ## Update neqsim-jar
 NeqSim is available from Maven Central; update its dependency in [pom.xml](pom.xml).
+The benchmark uses NeqSim's Maven dependency metadata, so its standalone
+`target/benchmarks.jar` also includes the runtime dependencies of a thin
+NeqSim JAR. The [thin-JAR workflow](.github/workflows/verify-thin-jar.yml)
+tests this using a thin JAR built from the matching NeqSim release source.
+This requires the published NeqSim POM to declare its runtime dependencies.
 The [Check NeqSim Updates workflow](.github/workflows/check-neqsim-updates.yml)
 checks Maven Central daily for the next stable release. It benchmarks the
 current and next release with identical sources and opens a reviewable PR with
