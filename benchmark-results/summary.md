@@ -14,6 +14,7 @@ JUnit result checks that fail on the release but pass on the baseline.
 
 | Benchmark Updated | Release | Baseline | Benchmark Revision | Cases | Lower / Higher | Significant Faster / Slower | Overall Gain | Correctness | Status | Report |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- | --- |
+| 2026-11-15 | 3.29.0 | 3.28.0 | B16-8d65e2 | 30 | 26 / 4 | 8 / 0 | +14.98% | passed | complete | [View results](releases/neqsim-3.29.0/from-3.28.0/run-44876015235-1/comparison.md) |
 | 2026-11-14 | 3.28.0 | 3.27.0 | B15-c61b46 | 30 | 11 / 19 | 0 / 0 | +1.03% | passed | complete | [View results](releases/neqsim-3.28.0/from-3.27.0/run-43646179849-1/comparison.md) |
 | 2026-10-28 | 3.27.0 | 3.26.0 | B14-87c780 | 0 | 0 / 0 | not recorded | n/a | not recorded | incomplete (baseline: passed; current: failed) | [View results](releases/neqsim-3.27.0/from-3.26.0/run-43469789898-1/comparison.md) |
 | 2026-10-28 | 3.26.0 | 3.25.0 | B14-87c780 | 23 | 8 / 15 | not recorded | +1.26% | not recorded | complete | [View results](releases/neqsim-3.26.0/from-3.25.0/run-43438092272-1/comparison.md) |
