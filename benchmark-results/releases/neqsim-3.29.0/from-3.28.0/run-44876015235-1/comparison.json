@@ -1,0 +1,114 @@
+{
+  "baseline_version": "3.28.0",
+  "current_version": "3.29.0",
+  "run_id": "44876015235",
+  "run_attempt": "1",
+  "source_commit": "22d297f1ee5b4918fad3b5f103c60cd72b043f8e",
+  "benchmark_revision": {
+    "number": 16,
+    "label": "B16-8d65e2abc344",
+    "fingerprint": "8d65e2abc34477bc3de280af8d8c1ed1b19f0004d0ed2f70ac049ae3ab913439",
+    "source_commit": "22d297f1ee5b4918fad3b5f103c60cd72b043f8e",
+    "updated_at": "2026-11-15",
+    "uncommitted_changes": false,
+    "scopes": [
+      "src/main/java",
+      "src/main/resources",
+      ".github/scripts/run-benchmark-timings.sh"
+    ],
+    "files": {
+      ".github/scripts/run-benchmark-timings.sh": "0089740a2d51811a4a5949fed8d074d0f1036485eaf0b3ed9907dbc7a742d943",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/FlashBenchmark.java": "16e923506b507f652653ce4709a31c2ffd57aca63da4facbb1acb5a408df33c5",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/TPflash.java": "5dfd00a3bd4cb4b497da1d3b47f2303f351c3bc570b61b528765919b920031ab",
+      "src/main/java/com/equinor/neqsim/benchmark/flash/TPflash_UMR.java": "925cc33c89f7dad0ec3ba4bf2567d283f80790fc465c963b45f4a8202536773e",
+      "src/main/java/com/equinor/neqsim/benchmark/fluidmechanics/PipeFlowSolverBenchmark.java": "76fdf4910236068de1c14af59b07a4fa1c33995047d29f1d320549dc36f08cab",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/DynamicProcessBenchmark.java": "3bab84ac0f7f8385726e7ec929741875419736d6381da78025732e80d41d3558",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/GasProcessingTrain.java": "d93bb96f7c68276f640350dfb9b0d2be4cd1c4f7d4f41d95fb4f0eb43243c2ad",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/MlTrainingDataBenchmark.java": "ae97558f81d8ed44723329cab636df8e370b769d612aee08542a73f1ee4fb804",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/ProcessSimulationBenchmark.java": "1538f5dab093c51dd7693e8ae621aee8544c18d8d6c55f2e131dc5bc282e5b89",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/PropertyTableBenchmark.java": "9f4a2a4ffa38be670d5034cd8ee337db4529cd2945a78d41cdeb97d4418df7b1",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/TwoFluidTransientBenchmark.java": "36607f1e7c2d1438dbf73e26c0e6787561e513ab963740f78e27059834121af6",
+      "src/main/java/com/equinor/neqsim/benchmark/longrun/package-info.java": "349faa2672b4d7ffde90e0e884ddd3bac9d30bc5a1653e28234c77df8275c947",
+      "src/main/java/com/equinor/neqsim/benchmark/numerics/LinearAlgebraKernelBenchmark.java": "c65dc1394ea88648f719e2eb2259a0c496fa188221d96ccb0fb7f039b2a06dc7",
+      "src/main/java/com/equinor/neqsim/benchmark/process/Compressor_Benchmark.java": "4c5fd06e5e1e1888b1fc7fe9accef39262ccf310f028c7741a1d43d54dcfdd50",
+      "src/main/java/com/equinor/neqsim/benchmark/process/LargeProcessModelBenchmark.java": "43aed65eaf92203243dfb1a06204f28466c06b7c6e1b93f532806f806f94ccd0",
+      "src/main/java/com/equinor/neqsim/benchmark/process/OilGasPlatformModel.java": "0a0f4df4c9dd8a00bb43a6ead7a9d8edec2ee337e1e05c21672ed09a0eda7b78",
+      "src/main/java/com/equinor/neqsim/benchmark/process/TEGprocess.java": "2e3be31a0adf16c5f7ae5c6854babfd8df641e2e9d241ef8467ff16e1de35602",
+      "src/main/java/com/equinor/neqsim/benchmark/thermo/InterfacialTensionBenchmark.java": "8774baa0bf170ed6646a4f67b67cb9d9259b8b765202417a6f16bd0892b3d669",
+      "src/main/java/com/equinor/neqsim/benchmark/thermo/PhaseEnvelopeBenchmark.java": "7abf7ec3acdca4a3c1599fa3ee33670b708855c207103f16dc8d3e6bb83ca78c",
+      "src/main/java/com/equinor/neqsim/benchmark/util/BenchmarkFluids.java": "87ea44ebc643643e5acffedeadb95d6bba553daaed4a026d076f38646c77fdb0",
+      "src/main/resources/fluids/platform_feed.e300": "32f4eb0253f888fa2c96a36fe76d26e085dda3308d5a80b11ce9899993aceb7b"
+    },
+    "changes": {
+      "added": [],
+      "modified": [
+        ".github/scripts/run-benchmark-timings.sh",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/DynamicProcessBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/MlTrainingDataBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/ProcessSimulationBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/PropertyTableBenchmark.java",
+        "src/main/java/com/equinor/neqsim/benchmark/longrun/TwoFluidTransientBenchmark.java"
+      ],
+      "deleted": []
+    }
+  },
+  "run_url": "https://github.com/equinor/neqsim-benchmark/actions/runs/44876015235",
+  "status": "complete",
+  "include_in_history": true,
+  "build_status": {
+    "baseline": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "current": {
+      "status": "passed",
+      "exit_code": 0
+    }
+  },
+  "requested_versions": {
+    "baseline": "3.28.0",
+    "current": "3.29.0"
+  },
+  "artifact_versions": {
+    "baseline": {
+      "requested_version": "3.28.0",
+      "version": "3.28.0",
+      "jar": "/home/runner/.m2/repository/com/equinor/neqsim/neqsim/3.28.0/neqsim-3.28.0.jar",
+      "source": "embedded Maven pom.properties"
+    },
+    "current": {
+      "requested_version": "3.29.0",
+      "version": "3.29.0",
+      "jar": "/home/runner/.m2/repository/com/equinor/neqsim/neqsim/3.29.0/neqsim-3.29.0.jar",
+      "source": "embedded Maven pom.properties"
+    }
+  },
+  "matched_cases": 30,
+  "faster_cases": 26,
+  "slower_cases": 4,
+  "gain_percent": 14.982277725174908,
+  "significantly_faster_cases": 8,
+  "significantly_slower_cases": 0,
+  "area_gain_percent": {
+    "flash": 24.229382220147542,
+    "fluidmechanics": 1.9472999187860607,
+    "longrun": 22.068272121091294,
+    "numerics": 0.8170853247585708,
+    "process": 22.03143368441124,
+    "thermo": 1.8842165865317062
+  },
+  "correctness": {
+    "baseline": {
+      "status": "passed",
+      "exit_code": 0,
+      "failures": []
+    },
+    "current": {
+      "status": "passed",
+      "exit_code": 0,
+      "failures": []
+    }
+  },
+  "correctness_regressions": [],
+  "errors": []
+}
